@@ -1,0 +1,109 @@
+#!/usr/bin/env sh
+# -*- mode: scheme; -*-
+exec guile --no-auto-compile -e main -s "$0" "$@"
+!#
+;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
+;;;
+;;; This file is part of kaakaa.
+;;;
+;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; kaakaa is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+
+(use-modules (rnrs io ports)
+             (srfi srfi-37)
+             (ice-9 match)
+             (kaakaa config)
+             (kaakaa openai)
+             (kaakaa tea)
+             (kaakaa tools base)
+             (kaakaa utils))
+
+(define (invalid-option opt name arg result)
+  (error "Invalid option" name))
+
+(define (invalid-argument arg result)
+  (error "Invalid argument" arg))
+
+(define %options
+  (list (option (list #\m "model") #t #f
+                (lambda (opt name arg result)
+                  (acons 'model arg
+                         result)))
+        (option (list #\a "api-base-uri") #t #f
+                (lambda (opt name arg result)
+                  (acons 'api-base-uri arg result)))
+        (option (list #\k "api-key-command") #t #f
+                (lambda (opt name arg result)
+                  (acons 'api-key-command arg result)))
+        (option (list #\v "version") #f #f
+                (lambda (opt name arg result)
+                  (acons 'version #t result)))
+        (option (list #\h "help") #f #f
+                (lambda (opt name arg result)
+                  (acons 'help #t result)))))
+
+(define (print-usage program)
+  "Print kaakaa usage. @var{program} is the name of the executable used
+to invoke kaakaa."
+  (format (current-error-port)
+          "Usage: ~a [OPTIONS]
+Run kaakaa AI agent.
+
+  --api-base-uri=URI             base API URI of LLM provider
+  --api-key-command=COMMAND      command to run to get API key
+  --model=MODEL                  LLM model name
+
+  --version                      print version and exit
+  --help                         print this help and exit
+"
+          program))
+
+(define (die fmt . args)
+  "Print formatted message, followed by a newline and exit with failure."
+  (apply format (current-error-port) fmt args)
+  (newline (current-error-port))
+  (exit #f))
+
+(define (get-api-key api-key-command)
+  "Run @var{api-key-command} and get the API key."
+  ;; We use a shell to execute since
+  ;; 1. api-key-command is a string, not a list of string arguments
+  ;; 2. api-key-command may contain pipes
+  (call-with-input-pipe `("sh" "-c" ,api-key-command)
+    get-string-all))
+
+(define main
+  (match-lambda
+    ((program args ...)
+     (let ((args (args-fold args
+                            %options
+                            invalid-option
+                            invalid-argument
+                            '((model . "anthropic/claude-opus-4.6")
+                              (api-base-uri . "https://openrouter.ai")))))
+       (when (assq-ref args 'help)
+         (print-usage program)
+         (exit #t))
+       (when (assq-ref args 'version)
+         (format (current-output-port)
+                 "~a ~a~%"
+                 %project %version)
+         (exit #t))
+       (unless (assq-ref args 'api-key-command)
+         (die "--api-key-command not specified"))
+       (tea-loop (initial-state)
+                 (assq-ref args 'api-base-uri)
+                 (get-api-key (assq-ref args 'api-key-command))
+                 (assq-ref args 'model)
+                 %base-tools)))))
