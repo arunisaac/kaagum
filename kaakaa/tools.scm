@@ -30,7 +30,10 @@
   #:use-module (kaakaa container)
   #:use-module (kaakaa records)
   #:use-module (kaakaa utils)
-  #:export (tool->spec
+  #:export (tool-call-parse-failure?
+            tool-call-parse-failure-message
+
+            tool->spec
             spec->tool-call
             eval-tool-call))
 
@@ -135,14 +138,21 @@
           (json tool-call-result-json)
           (success? tool-call-result-success?)))
 
+(define-condition-type &tool-call-parse-failure &serious
+  tool-call-parse-failure tool-call-parse-failure?
+  (message tool-call-parse-failure-message))
+
 (define-condition-type &tool-call-failure &serious
   tool-call-failure tool-call-failure?
   (message tool-call-failure-message))
 
 (define (spec->tool-call session-id session-cwd spec)
   "Deserialize JSON tool call @var{spec} into a @code{<tool-call>}
-object. @var{session-id} and @var{session-cwd} are the ID and current working
-directory of the session the tool call pertains to."
+object. Raise a @code{&tool-call-parse-failure} condition if deserialization
+fails.
+
+@var{session-id} and @var{session-cwd} are the ID and current working directory
+of the session the tool call pertains to."
   ;; TODO: Assert that type is function, and do more sanitization.
   (tool-call session-id
              session-cwd
