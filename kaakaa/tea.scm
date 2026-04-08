@@ -100,21 +100,31 @@
            (key-ref session-id)
            state-sessions))
 
-(define (state->llm-request session-id state)
-  "Return an @code{<llm-request>} for session with @var{session-id} in @var{state}."
-  (llm-request session-id
-               (map (lambda (message)
-                      ;; Strip out all fields (such as reasoning fields) other
-                      ;; than role, content and tool_calls.
-                      (filter (match-lambda
-                                ((key . _)
-                                 (member key (list "role" "content"
-                                                   "tool_calls"))))
-                              message))
-                    ;; Reverse because we have been prepending new messages onto
-                    ;; the list.
-                    (reverse (focus (state-messages session-id)
-                                    state)))))
+(define (state->llm-requests session-id state)
+  "Return a list of @code{<llm-request>} objects for session with @var{session-id}
+in @var{state}."
+  (if (and (null? (focus (state-tool-calls session-id)
+                         state))
+           (not (focus (state-session-cancelling? session-id)
+                       state)))
+      ;; There are no more tool calls in flight and a cancellation is not in
+      ;; progress; dispatch to LLM.
+      (list (llm-request session-id
+                         (map (lambda (message)
+                                ;; Strip out all fields (such as reasoning
+                                ;; fields) other than role, content and
+                                ;; tool_calls.
+                                (filter (match-lambda
+                                          ((key . _)
+                                           (member key (list "role" "content"
+                                                             "tool_calls"))))
+                                        message))
+                              ;; Reverse because we have been prepending new
+                              ;; messages onto the list.
+                              (reverse (focus (state-messages session-id)
+                                              state)))))
+      ;; There are tool calls or a cancellation in progress; do nothing.
+      (list)))
 
 (define (next-state-client-request state request)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
@@ -170,7 +180,7 @@ a list of effects."
                                            request)))
                                 state)))
               (values state
-                      (list (state->llm-request session-id state)))))
+                      (state->llm-requests session-id state))))
            ("session/cancel"
             (let ((session-id (focus (in "params" "sessionId")
                                      request)))
@@ -364,14 +374,7 @@ state and a list of effects."
                                      ("text" . ,(focus (key-ref "content")
                                                        (tool-call-result-json result)))))
                                    ("rawInput" . ,(tool-call-result-arguments result))))))
-                  ;; If there are no more tool calls and a cancellation is not
-                  ;; in progress, dispatch to LLM.
-                  (if (and (null? (focus (state-tool-calls session-id)
-                                         state))
-                           (not (focus (state-session-cancelling? session-id)
-                                       state)))
-                      (list (state->llm-request session-id state))
-                      (list))))))
+                  (state->llm-requests session-id state)))))
 
 (define (next-state state message)
   "Given current @var{state} and a new @var{message}, return the next state and a
