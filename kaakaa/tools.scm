@@ -156,23 +156,40 @@ of the session the tool call pertains to. @var{tools} is an association list
 mapping the names of all available tools to their respective @code{<tool>}
 objects."
   ;; TODO: Assert that type is function, and do more sanitization.
-  (let ((args (guard (c (else
-                         (raise-exception
-                          (tool-call-parse-failure
-                           "Error: Arguments are not valid JSON"))))
-                (json-string->scm (focus (in "function" "arguments")
-                                         spec))))
-        (name (focus (in "function" "name")
-                     spec)))
-    (unless (focus (key-ref name) tools)
-      (raise-exception
-       (tool-call-parse-failure
-        (string-append "Error: Function " name " does not exist"))))
+  (let* ((args (guard (c (else
+                          (raise-exception
+                           (tool-call-parse-failure
+                            "Error: Arguments are not valid JSON"))))
+                 (json-string->scm (focus (in "function" "arguments")
+                                          spec))))
+         (name (focus (in "function" "name")
+                      spec))
+         (tool (cond
+                ((focus (key-ref name) tools)
+                 => identity)
+                (else
+                 (raise-exception
+                  (tool-call-parse-failure
+                   (string-append "Error: Function " name " does not exist")))))))
     (tool-call session-id
                session-cwd
                (focus (key-ref "id")
                       spec)
                name
+               ;; Only pick out valid arguments, and error out if any required
+               ;; arguments are missing.
+               (filter-map (match-lambda
+                             ((arg-name . parameter)
+                              (cond
+                               ((assoc arg-name args)
+                                => identity)
+                               (else
+                                (and (tool-parameter-required? parameter)
+                                     (raise-exception
+                                      (tool-call-failure
+                                       (string-append "Error: Missing required argument "
+                                                      arg-name))))))))
+                           (tool-parameters tool))
                'pending-approval)))
 
 (define (eval-tool-call tool-call tools)
@@ -194,40 +211,24 @@ available tools to their respective @code{<tool>} objects."
                                       ("tool_call_id" . ,(tool-call-id tool-call))
                                       ("content" . ,(tool-call-failure-message c)))
                                     #f)))
-         (let* ((args (tool-call-arguments tool-call))
-                (filtered-args
-                 ;; Only pick out valid arguments, and error out if any required
-                 ;; arguments are missing.
-                 (alist->plist
-                  (filter-map (match-lambda
-                                ((arg-name . parameter)
-                                 (cond
-                                  ((assoc arg-name args)
-                                   => identity)
-                                  (else
-                                   (and (tool-parameter-required? parameter)
-                                        (raise-exception
-                                         (tool-call-failure
-                                          (string-append "Error: Missing required argument "
-                                                         arg-name))))))))
-                              (tool-parameters tool))))
+         (let* ((args (alist->plist (tool-call-arguments tool-call)))
                 ;; Actually evaluate tool call.
                 (tool-result
                  (call-with-container*
                      (map file-system-mapping->bind-mount
                           ((tool-container-mappings tool)
                            (tool-call-session-cwd tool-call)
-                           filtered-args))
+                           args))
                      (tool-container-namespaces tool)
                    (lambda ()
                      (chdir (tool-call-session-cwd tool-call))
                      (apply (tool-proc tool)
-                            filtered-args)))))
+                            args)))))
            ;; Build result.
            (tool-call-result (tool-call-session-id tool-call)
                              (tool-call-id tool-call)
-                             (apply (tool-title tool) filtered-args)
-                             (apply (tool-kind tool) filtered-args)
+                             (apply (tool-title tool) args)
+                             (apply (tool-kind tool) args)
                              (tool-call-arguments tool-call)
                              `(("role" . "tool")
                                ("tool_call_id" . ,(tool-call-id tool-call))
