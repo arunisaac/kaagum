@@ -154,17 +154,20 @@ fails.
 @var{session-id} and @var{session-cwd} are the ID and current working directory
 of the session the tool call pertains to."
   ;; TODO: Assert that type is function, and do more sanitization.
-  (tool-call session-id
-             session-cwd
-             (focus (key-ref "id")
-                    spec)
-             (focus (in "function" "name")
-                    spec)
-             ;; The arguments may be invalid JSON. So, we don't deserialize
-             ;; right away.
-             (focus (in "function" "arguments")
-                    spec)
-             'pending-approval))
+  (let ((args (guard (c (else
+                         (raise-exception
+                          (tool-call-parse-failure
+                           "Error: Arguments are not valid JSON"))))
+                (json-string->scm (focus (in "function" "arguments")
+                                         spec)))))
+    (tool-call session-id
+               session-cwd
+               (focus (key-ref "id")
+                      spec)
+               (focus (in "function" "name")
+                      spec)
+               args
+               'pending-approval)))
 
 (define (eval-tool-call tool-call tools)
   "Evaluate @var{tool-call} and return a @code{<tool-call-result>}
@@ -187,13 +190,7 @@ available tools to their respective @code{<tool>} objects."
                                            ("tool_call_id" . ,(tool-call-id tool-call))
                                            ("content" . ,(tool-call-failure-message c)))
                                          #f)))
-              (let* ((args
-                      ;; Deserialize arguments checking for valid JSON.
-                      (guard (c (else
-                                 (raise-exception
-                                  (tool-call-failure
-                                   "Error: Arguments are not valid JSON"))))
-                        (json-string->scm (tool-call-arguments tool-call))))
+              (let* ((args (tool-call-arguments tool-call))
                      (filtered-args
                       ;; Only pick out valid arguments, and error out if any
                       ;; required arguments are missing.
