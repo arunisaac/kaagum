@@ -58,8 +58,8 @@
       (constructor description parameters proc
                    container-mappings container-namespaces title kind)))
   (fields (description tool-description)
-          ;; Association list mapping parameter names to
-          ;; <tool-parameter> objects.
+          ;; Association list mapping parameter names to <tool-parameter>
+          ;; objects.
           (parameters tool-parameters)
           (proc tool-proc)
           (container-mappings tool-container-mappings)
@@ -97,8 +97,8 @@
       ("properties" .
        ,(map (match-lambda
                ((name . parameter)
-                ;; TODO: Check if the OpenAI API supports arrays of
-                ;; arrays and other more deeply nested types.
+                ;; TODO: Check if the OpenAI API supports arrays of arrays and
+                ;; other more deeply nested types.
                 (let ((type (tool-parameter-type parameter)))
                   `(,name
                     ("description" . ,(tool-parameter-description parameter))

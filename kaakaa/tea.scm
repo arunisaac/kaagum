@@ -56,8 +56,8 @@
   (fields (client-request-id state-client-request-id lensed)
           (agent-request-id state-agent-request-id lensed)
           (next-session-id state-next-session-id lensed)
-          ;; Association list mapping agent request IDs to tool calls
-          ;; for which permission is sought
+          ;; Association list mapping agent request IDs to tool calls for which
+          ;; permission is sought
           (requests-alist state-requests-alist lensed)
           (sessions state-sessions lensed)))
 
@@ -76,22 +76,20 @@
   (fields (json acp-message-json)))
 
 (define (state-messages session-id)
-  "Return a lens to focus on messages of session with @var{session-id} in
-state."
+  "Return a lens to focus on messages of session with @var{session-id} in state."
   (compose session-messages
            (key-ref session-id)
            state-sessions))
 
 (define (state-tool-calls session-id)
-  "Return a lens to focus on tool calls of session with @var{session-id}
-in state."
+  "Return a lens to focus on tool calls of session with @var{session-id} in state."
   (compose session-tool-calls
            (key-ref session-id)
            state-sessions))
 
 (define (state-tool-call tool-call-id session-id)
-  "Return a lens to focus on tool call with @var{tool-call-id} of session
-with @var{session-id} in state."
+  "Return a lens to focus on tool call with @var{tool-call-id} of session with
+@var{session-id} in state."
   (compose (key-ref tool-call-id)
            (state-tool-calls session-id)))
 
@@ -103,26 +101,24 @@ with @var{session-id} in state."
            state-sessions))
 
 (define (state->llm-request session-id state)
-  "Return an @code{<llm-request>} for session with @var{session-id} in
-@var{state}."
+  "Return an @code{<llm-request>} for session with @var{session-id} in @var{state}."
   (llm-request session-id
                (map (lambda (message)
-                      ;; Strip out all fields (such as reasoning
-                      ;; fields) other than role, content and
-                      ;; tool_calls.
+                      ;; Strip out all fields (such as reasoning fields) other
+                      ;; than role, content and tool_calls.
                       (filter (match-lambda
                                 ((key . _)
                                  (member key (list "role" "content"
                                                    "tool_calls"))))
                               message))
-                    ;; Reverse because we have been prepending new
-                    ;; messages onto the list.
+                    ;; Reverse because we have been prepending new messages onto
+                    ;; the list.
                     (reverse (focus (state-messages session-id)
                                     state)))))
 
 (define (next-state-client-request state request)
-  "Given current @var{state} and a new ACP @var{request}, return the
-next state and a list of effects."
+  "Given current @var{state} and a new ACP @var{request}, return the next state and
+a list of effects."
   (let ((request-id (focus (key-ref "id")
                            request)))
     (cond
@@ -150,8 +146,7 @@ next state and a list of effects."
                           ;; Push new session onto list.
                           (push state-sessions
                                 (cons session-id
-                                      ;; TODO: Check if cwd is an
-                                      ;; absolute path.
+                                      ;; TODO: Check if cwd is an absolute path.
                                       (session (focus (in "params" "cwd")
                                                       request)))
                                 <>)
@@ -169,8 +164,8 @@ next state and a list of effects."
                    (state (push (state-messages session-id)
                                 `(("role" . "user")
                                   ("content" .
-                                   ;; TODO: Filter to only allow
-                                   ;; "text" type content blocks.
+                                   ;; TODO: Filter to only allow "text" type
+                                   ;; content blocks.
                                    ,(focus (in "params" "prompt")
                                            request)))
                                 state)))
@@ -197,8 +192,8 @@ next state and a list of effects."
                                             ("stopReason" . "cancelled")))))))))))))
 
 (define (next-state-client-response state response)
-  "Given current @var{state} and a new ACP @var{response}, return the
-next state and a list of effects."
+  "Given current @var{state} and a new ACP @var{response}, return the next state
+and a list of effects."
   (let ((request-id (focus (key-ref "id")
                            response)))
     (cond
@@ -230,22 +225,19 @@ next state and a list of effects."
                               'approved)
                              (else 'rejected))
                             <>)
-                       ;; If the tool call was cancelled, set the
-                       ;; cancelling flag to indicate that a
-                       ;; cancellation is in progress.
+                       ;; If the tool call was cancelled, set the cancelling
+                       ;; flag to indicate that a cancellation is in progress.
                        (put (state-session-cancelling? session-id)
                             (string=? outcome-type "cancelled")
                             <>)
-                       ;; Unregister request corresponding to this
-                       ;; response.
+                       ;; Unregister request corresponding to this response.
                        (alist-delete-over state-requests-alist
                                           request-id
                                           <>))))
              (values state
-                     ;; Request tool call evaluation. eval-tool-call
-                     ;; handles cancelled and rejected tool calls
-                     ;; correctly. We don't have to worry about it
-                     ;; here.
+                     ;; Request tool call evaluation. eval-tool-call handles
+                     ;; cancelled and rejected tool calls correctly. We don't
+                     ;; have to worry about it here.
                      (list (focus (state-tool-call (tool-call-id tool-call)
                                                    (tool-call-session-id tool-call))
                                   state))))))
@@ -254,8 +246,8 @@ next state and a list of effects."
      (else (values state '())))))
 
 (define (next-state-llm-response state response)
-  "Given current @var{state} and a new LLM @var{response}, return the
-next state and a list of effects."
+  "Given current @var{state} and a new LLM @var{response}, return the next state
+and a list of effects."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (focus (in-json "choices" 0 "message")
                            (llm-response-json response)))
@@ -287,8 +279,8 @@ next state and a list of effects."
                                            tool-call))
                                    tool-calls)
                               <>)
-                ;; Register this request so we can recall the details
-                ;; later when the response comes in.
+                ;; Register this request so we can recall the details later when
+                ;; the response comes in.
                 (prepend-over state-requests-alist
                               (map cons
                                    request-ids
@@ -324,9 +316,8 @@ next state and a list of effects."
                                              %tool-reject-once)))))
                               tool-calls
                               request-ids)
-                         ;; End prompt turn if there are no further
-                         ;; tool calls and a cancellation is not in
-                         ;; progress.
+                         ;; End prompt turn if there are no further tool calls
+                         ;; and a cancellation is not in progress.
                          (if (and (null? tool-calls)
                                   (not (focus (state-session-cancelling? session-id)
                                               state)))
@@ -338,8 +329,8 @@ next state and a list of effects."
                              '()))))))
 
 (define (next-state-tool-call-result state result)
-  "Given current @var{state} and a new tool call @var{result}, return the
-next state and a list of effects."
+  "Given current @var{state} and a new tool call @var{result}, return the next
+state and a list of effects."
   (let* ((session-id (tool-call-result-session-id result))
          (state (-> state
                     ;; Push tool call result onto messages.
@@ -357,8 +348,7 @@ next state and a list of effects."
                                  ("params"
                                   ("sessionId" . ,session-id)
                                   ("update"
-                                   ;; TODO: Add locations and
-                                   ;; rawOutput.
+                                   ;; TODO: Add locations and rawOutput.
                                    ("sessionUpdate" . "tool_call")
                                    ("toolCallId" . ,(tool-call-result-call-id result))
                                    ("title" . ,(tool-call-result-title result))
@@ -374,8 +364,8 @@ next state and a list of effects."
                                      ("text" . ,(focus (key-ref "content")
                                                        (tool-call-result-json result)))))
                                    ("rawInput" . ,(tool-call-result-arguments result))))))
-                  ;; If there are no more tool calls and a
-                  ;; cancellation is not in progress, dispatch to LLM.
+                  ;; If there are no more tool calls and a cancellation is not
+                  ;; in progress, dispatch to LLM.
                   (if (and (null? (focus (state-tool-calls session-id)
                                          state))
                            (not (focus (state-session-cancelling? session-id)
@@ -384,8 +374,8 @@ next state and a list of effects."
                       (list))))))
 
 (define (next-state state message)
-  "Given current @var{state} and a new @var{message}, return the next
-state and a list of effects."
+  "Given current @var{state} and a new @var{message}, return the next state and a
+list of effects."
   (cond
    ((acp-message? message)
     (let ((json-message (acp-message-json message)))
@@ -411,14 +401,12 @@ state and a list of effects."
     (next-state-tool-call-result state message))))
 
 (define (tea-loop state llm-base-uri llm-api-key model tools)
-  "Run a @acronym{TEA, The Elm Architecture} loop starting with
-@var{state}.
+  "Run a @acronym{TEA, The Elm Architecture} loop starting with @var{state}.
 
-@var{llm-base-uri} is the base URI of the LLM provider.
-@var{llm-api-key} is the API key to authenticate with the LLM
-provider. @var{model} is the name of the model. @var{tools} is the
-list of tools made available to the LLM. It is an association list
-matching tool names to @code{<tool>} objects."
+@var{llm-base-uri} is the base URI of the LLM provider. @var{llm-api-key} is the
+API key to authenticate with the LLM provider. @var{model} is the name of the
+model. @var{tools} is the list of tools made available to the LLM. It is an
+association list matching tool names to @code{<tool>} objects."
   ;; Read a JSON-RPC message, handle it, and loop.
   (let ((line (get-line (current-input-port))))
     (unless (eof-object? line)
@@ -436,8 +424,8 @@ matching tool names to @code{<tool>} objects."
 (define (handle-event event state llm-base-uri llm-api-key model tools)
   "Handle @var{event} with @var{state} and return a new state.
 
-@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are
-the same as in @code{tea-loop}."
+@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
+as in @code{tea-loop}."
   (let-values (((state effects)
                 ;; Compute the next state and collect the effects.
                 (next-state state event)))
@@ -449,8 +437,8 @@ the same as in @code{tea-loop}."
 (define (do-effect effect state llm-base-uri llm-api-key model tools)
   "Do @var{effect} with @var{state} and return a new state.
 
-@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are
-the same as in @code{tea-loop}."
+@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
+as in @code{tea-loop}."
   (cond
    ;; Send message to client, and return the state unchanged.
    ((acp-message? effect)
@@ -458,8 +446,7 @@ the same as in @code{tea-loop}."
     (newline)
     (flush-output-port (current-output-port))
     state)
-   ;; Send request to LLM, handle the response, and return the new
-   ;; state.
+   ;; Send request to LLM, handle the response, and return the new state.
    ((llm-request? effect)
     ;; TODO: Handle network failures in OpenAI query.
     (handle-event (llm-response (llm-request-session-id effect)
