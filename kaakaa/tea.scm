@@ -259,38 +259,56 @@ and a list of effects."
 (define (next-state-tool-call state session-id call-json)
   "Given current @var{state} and a new tool @var{call-json}, return the next state
 and a list of effects."
-  (let ((call (spec->tool-call session-id
-                               (focus (compose session-cwd
-                                               (key-ref session-id)
-                                               state-sessions)
-                                      state)
-                               call-json))
-        (request-id (focus state-agent-request-id state)))
-    (values (-> state
-                ;; Queue tool call.
-                (push (state-tool-calls session-id)
-                      (cons (tool-call-id call)
-                            call)
-                      <>)
-                ;; Register this request so we can recall the details later
-                ;; when the response comes in.
-                (push state-requests-alist
-                      (cons request-id call)
-                      <>)
-                ;; Bump agent request ID.
-                (over state-agent-request-id
-                      1+
-                      <>))
-            (list (acp-message `(("jsonrpc" . "2.0")
-                                 ("id" . ,request-id)
-                                 ("method" . "session/request_permission")
-                                 ("params"
-                                  ("sessionId" . ,session-id)
-                                  ("toolCall"
-                                   ("toolCallId" . ,(tool-call-id call)))
-                                  ("options" .
-                                   ,(vector %tool-allow-once
-                                            %tool-reject-once)))))))))
+  (guard (c ((tool-call-parse-failure? c)
+             (let ((call-id (focus (key-ref "id") call-json)))
+               (values (-> state
+                           ;; Push tool call response onto messages.
+                           (push (state-messages session-id)
+                                 `(("role" . "tool")
+                                   ("tool_call_id" . ,call-id)
+                                   ("content" . ,(tool-call-parse-failure-message c)))
+                                 <>))
+                       ;; Notify client about invalid tool call.
+                       (list (acp-message `(("jsonrpc" . "2.0")
+                                            ("method" . "session/update")
+                                            ("params"
+                                             ("sessionId" . ,session-id)
+                                             ("update"
+                                              ("sessionUpdate" . "tool_call")
+                                              ("toolCallId" . ,call-id)
+                                              ("status" . "failed"))))))))))
+    (let ((call (spec->tool-call session-id
+                                 (focus (compose session-cwd
+                                                 (key-ref session-id)
+                                                 state-sessions)
+                                        state)
+                                 call-json))
+          (request-id (focus state-agent-request-id state)))
+      (values (-> state
+                  ;; Queue tool call.
+                  (push (state-tool-calls session-id)
+                        (cons (tool-call-id call)
+                              call)
+                        <>)
+                  ;; Register this request so we can recall the details later
+                  ;; when the response comes in.
+                  (push state-requests-alist
+                        (cons request-id call)
+                        <>)
+                  ;; Bump agent request ID.
+                  (over state-agent-request-id
+                        1+
+                        <>))
+              (list (acp-message `(("jsonrpc" . "2.0")
+                                   ("id" . ,request-id)
+                                   ("method" . "session/request_permission")
+                                   ("params"
+                                    ("sessionId" . ,session-id)
+                                    ("toolCall"
+                                     ("toolCallId" . ,(tool-call-id call)))
+                                    ("options" .
+                                     ,(vector %tool-allow-once
+                                              %tool-reject-once))))))))))
 
 (define (next-state-llm-response state response)
   "Given current @var{state} and a new LLM @var{response}, return the next state
