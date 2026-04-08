@@ -17,6 +17,7 @@
 ;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kaakaa tea)
+  #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
   #:use-module (rnrs records syntactic)
   #:use-module (srfi srfi-1)
@@ -255,88 +256,96 @@ and a list of effects."
      ;; requests-alist). Silently ignore it.
      (else (values state '())))))
 
+(define (next-state-tool-call state session-id call-json)
+  "Given current @var{state} and a new tool @var{call-json}, return the next state
+and a list of effects."
+  (let ((call (spec->tool-call session-id
+                               (focus (compose session-cwd
+                                               (key-ref session-id)
+                                               state-sessions)
+                                      state)
+                               call-json))
+        (request-id (focus state-agent-request-id state)))
+    (values (-> state
+                ;; Queue tool call.
+                (push (state-tool-calls session-id)
+                      (cons (tool-call-id call)
+                            call)
+                      <>)
+                ;; Register this request so we can recall the details later
+                ;; when the response comes in.
+                (push state-requests-alist
+                      (cons request-id call)
+                      <>)
+                ;; Bump agent request ID.
+                (over state-agent-request-id
+                      1+
+                      <>))
+            (list (acp-message `(("jsonrpc" . "2.0")
+                                 ("id" . ,request-id)
+                                 ("method" . "session/request_permission")
+                                 ("params"
+                                  ("sessionId" . ,session-id)
+                                  ("toolCall"
+                                   ("toolCallId" . ,(tool-call-id call)))
+                                  ("options" .
+                                   ,(vector %tool-allow-once
+                                            %tool-reject-once)))))))))
+
 (define (next-state-llm-response state response)
   "Given current @var{state} and a new LLM @var{response}, return the next state
 and a list of effects."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (focus (in-json "choices" 0 "message")
                            (llm-response-json response)))
-         (tool-calls (cond
-                      ((focus (key-ref "tool_calls")
-                              llm-reply)
-                       => (lambda (json)
-                            (map (cut spec->tool-call
-                                      session-id
-                                      (focus (compose session-cwd
-                                                      (key-ref session-id)
-                                                      state-sessions)
-                                             state)
-                                      <>)
-                                 (vector->list json))))
-                      (else '())))
-         (request-ids (iota (length tool-calls)
-                            (focus state-agent-request-id
-                                   state))))
-    (values (-> state
-                ;; Push LLM response onto messages.
-                (push (state-messages session-id)
-                      llm-reply
-                      <>)
-                ;; Queue new tool calls.
-                (prepend-over (state-tool-calls session-id)
-                              (map (lambda (tool-call)
-                                     (cons (tool-call-id tool-call)
-                                           tool-call))
-                                   tool-calls)
-                              <>)
-                ;; Register this request so we can recall the details later when
-                ;; the response comes in.
-                (prepend-over state-requests-alist
-                              (map cons
-                                   request-ids
-                                   tool-calls)
-                              <>)
-                ;; Bump up agent request ID by the number of IDs used.
-                (over state-agent-request-id
-                      (cut + (length tool-calls) <>)
-                      <>))
-            (map acp-message
-                 (append `( ;; Send LLM's text response.
-                           (("jsonrpc" . "2.0")
-                            ("method" . "session/update")
-                            ("params"
-                             ("sessionId" . ,session-id)
-                             ("update"
-                              ("sessionUpdate" . "agent_message_chunk")
-                              ("content"
-                               ("type" . "text")
-                               ("text" . ,(focus (key-ref "content")
-                                                 llm-reply)))))))
-                         ;; Request permission from the client.
-                         (map (lambda (call request-id)
-                                `(("jsonrpc" . "2.0")
-                                  ("id" . ,request-id)
-                                  ("method" . "session/request_permission")
-                                  ("params"
-                                   ("sessionId" . ,session-id)
-                                   ("toolCall"
-                                    ("toolCallId" . ,(tool-call-id call)))
-                                   ("options" .
-                                    ,(vector %tool-allow-once
-                                             %tool-reject-once)))))
-                              tool-calls
-                              request-ids)
-                         ;; End prompt turn if there are no further tool calls
-                         ;; and a cancellation is not in progress.
-                         (if (and (null? tool-calls)
-                                  (not (focus (state-session-cancelling? session-id)
-                                              state)))
-                             `((("jsonrpc" . "2.0")
-                                ("id" . ,(focus state-client-request-id
-                                                state))
-                                ("result"
-                                 ("stopReason" . "end_turn"))))
-                             '()))))))
+         (tool-calls-json (cond
+                           ((focus (key-ref "tool_calls")
+                                   llm-reply)
+                            => vector->list)
+                           (else '()))))
+    (let-values (((state tool-call-effects)
+                  (foldn (lambda (call-json state effects)
+                           (let-values (((state new-effects)
+                                         (next-state-tool-call state session-id call-json)))
+                             (values state
+                                     (append new-effects effects))))
+                         tool-calls-json
+                         (-> state
+                             ;; Push LLM response onto messages.
+                             (push (state-messages session-id)
+                                   llm-reply
+                                   <>))
+                         '())))
+      (values state
+              (cons (acp-message `( ;; Send LLM's text response.
+                                   ("jsonrpc" . "2.0")
+                                   ("method" . "session/update")
+                                   ("params"
+                                    ("sessionId" . ,session-id)
+                                    ("update"
+                                     ("sessionUpdate" . "agent_message_chunk")
+                                     ("content"
+                                      ("type" . "text")
+                                      ("text" . ,(focus (key-ref "content")
+                                                        llm-reply)))))))
+                    (append tool-call-effects
+                            ;; End prompt turn if there are no further tool
+                            ;; calls and a cancellation is not in progress.
+                            (if (and (null? tool-calls-json)
+                                     (not (focus (state-session-cancelling? session-id)
+                                                 state)))
+                                (list (acp-message `(("jsonrpc" . "2.0")
+                                                     ("id" . ,(focus state-client-request-id
+                                                                     state))
+                                                     ("result"
+                                                      ("stopReason" . "end_turn")))))
+                                '())
+                            ;; All tool calls may have been invalid. Maybe
+                            ;; dispatch LLM requests, but only if there were any
+                            ;; in the first place.
+                            (if (not (null? tool-calls-json))
+                                (state->llm-requests session-id state)
+                                '())))))))
 
 (define (next-state-tool-call-result state result)
   "Given current @var{state} and a new tool call @var{result}, return the next
