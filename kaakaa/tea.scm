@@ -256,9 +256,11 @@ and a list of effects."
      ;; requests-alist). Silently ignore it.
      (else (values state '())))))
 
-(define (next-state-tool-call state session-id call-json)
+(define (next-state-tool-call state session-id call-json tools)
   "Given current @var{state} and a new tool @var{call-json}, return the next state
-and a list of effects."
+and a list of effects.
+
+@var{tools} is the same as in @code{tea-loop}."
   (guard (c ((tool-call-parse-failure? c)
              (let ((call-id (focus (key-ref "id") call-json)))
                (values (-> state
@@ -282,6 +284,7 @@ and a list of effects."
                                                  (key-ref session-id)
                                                  state-sessions)
                                         state)
+                                 tools
                                  call-json))
           (request-id (focus state-agent-request-id state)))
       (values (-> state
@@ -310,9 +313,11 @@ and a list of effects."
                                      ,(vector %tool-allow-once
                                               %tool-reject-once))))))))))
 
-(define (next-state-llm-response state response)
+(define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
-and a list of effects."
+and a list of effects.
+
+@var{tools} is the same as in @code{tea-loop}."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (focus (in-json "choices" 0 "message")
                            (llm-response-json response)))
@@ -324,7 +329,8 @@ and a list of effects."
     (let-values (((state tool-call-effects)
                   (foldn (lambda (call-json state effects)
                            (let-values (((state new-effects)
-                                         (next-state-tool-call state session-id call-json)))
+                                         (next-state-tool-call
+                                          state session-id call-json tools)))
                              (values state
                                      (append new-effects effects))))
                          tool-calls-json
@@ -403,9 +409,11 @@ state and a list of effects."
                                    ("rawInput" . ,(tool-call-result-arguments result))))))
                   (state->llm-requests session-id state)))))
 
-(define (next-state state message)
+(define (next-state state message tools)
   "Given current @var{state} and a new @var{message}, return the next state and a
-list of effects."
+list of effects.
+
+@var{tools} is the same as in @code{tea-loop}."
   (cond
    ((acp-message? message)
     (let ((json-message (acp-message-json message)))
@@ -426,7 +434,7 @@ list of effects."
                      (else state))
                     effects)))))
    ((llm-response? message)
-    (next-state-llm-response state message))
+    (next-state-llm-response state message tools))
    ((tool-call-result? message)
     (next-state-tool-call-result state message))))
 
@@ -458,7 +466,7 @@ association list matching tool names to @code{<tool>} objects."
 as in @code{tea-loop}."
   (let-values (((state effects)
                 ;; Compute the next state and collect the effects.
-                (next-state state event)))
+                (next-state state event tools)))
     ;; Do the effects.
     (fold (cut do-effect <> <> llm-base-uri llm-api-key model tools)
           state

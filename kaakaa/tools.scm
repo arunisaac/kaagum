@@ -146,118 +146,109 @@
   tool-call-failure tool-call-failure?
   (message tool-call-failure-message))
 
-(define (spec->tool-call session-id session-cwd spec)
+(define (spec->tool-call session-id session-cwd tools spec)
   "Deserialize JSON tool call @var{spec} into a @code{<tool-call>}
 object. Raise a @code{&tool-call-parse-failure} condition if deserialization
 fails.
 
 @var{session-id} and @var{session-cwd} are the ID and current working directory
-of the session the tool call pertains to."
+of the session the tool call pertains to. @var{tools} is an association list
+mapping the names of all available tools to their respective @code{<tool>}
+objects."
   ;; TODO: Assert that type is function, and do more sanitization.
   (let ((args (guard (c (else
                          (raise-exception
                           (tool-call-parse-failure
                            "Error: Arguments are not valid JSON"))))
                 (json-string->scm (focus (in "function" "arguments")
-                                         spec)))))
+                                         spec))))
+        (name (focus (in "function" "name")
+                     spec)))
+    (unless (focus (key-ref name) tools)
+      (raise-exception
+       (tool-call-parse-failure
+        (string-append "Error: Function " name " does not exist"))))
     (tool-call session-id
                session-cwd
                (focus (key-ref "id")
                       spec)
-               (focus (in "function" "name")
-                      spec)
-               args
+               name
                'pending-approval)))
 
 (define (eval-tool-call tool-call tools)
   "Evaluate @var{tool-call} and return a @code{<tool-call-result>}
 object. @var{tools} is an association list mapping the names of all
 available tools to their respective @code{<tool>} objects."
-  (cond
-   ((focus (key-ref (tool-call-function tool-call))
-           tools)
-    => (lambda (tool)
-         (case (focus tool-call-status tool-call)
-           ;; User approved tool call.
-           ((approved)
-            (guard (c ((tool-call-failure? c)
-                       (tool-call-result (tool-call-session-id tool-call)
-                                         (tool-call-id tool-call)
-                                         #f
-                                         #f
-                                         (tool-call-arguments tool-call)
-                                         `(("role" . "tool")
-                                           ("tool_call_id" . ,(tool-call-id tool-call))
-                                           ("content" . ,(tool-call-failure-message c)))
-                                         #f)))
-              (let* ((args (tool-call-arguments tool-call))
-                     (filtered-args
-                      ;; Only pick out valid arguments, and error out if any
-                      ;; required arguments are missing.
-                      (alist->plist
-                       (filter-map (match-lambda
-                                     ((arg-name . parameter)
-                                      (cond
-                                       ((assoc arg-name args)
-                                        => identity)
-                                       (else
-                                        (and (tool-parameter-required? parameter)
-                                             (raise-exception
-                                              (tool-call-failure
-                                               (string-append "Error: Missing required argument "
-                                                              arg-name))))))))
-                                   (tool-parameters tool))))
-                     ;; Actually evaluate tool call.
-                     (tool-result
-                      (call-with-container*
-                          (map file-system-mapping->bind-mount
-                               ((tool-container-mappings tool)
-                                (tool-call-session-cwd tool-call)
-                                filtered-args))
-                          (tool-container-namespaces tool)
-                        (lambda ()
-                          (chdir (tool-call-session-cwd tool-call))
-                          (apply (tool-proc tool)
-                                 filtered-args)))))
-                ;; Build result.
-                (tool-call-result (tool-call-session-id tool-call)
-                                  (tool-call-id tool-call)
-                                  (apply (tool-title tool) filtered-args)
-                                  (apply (tool-kind tool) filtered-args)
-                                  (tool-call-arguments tool-call)
-                                  `(("role" . "tool")
-                                    ("tool_call_id" . ,(tool-call-id tool-call))
-                                    ("content" . ,(container-result-output tool-result)))
-                                  (zero? (container-result-exit-value tool-result))))))
-           ;; User cancelled or rejected tool call.
-           ((cancelled rejected)
-            (tool-call-result (tool-call-session-id tool-call)
-                              (tool-call-id tool-call)
-                              #f
-                              #f
-                              (tool-call-arguments tool-call)
-                              `(("role" . "tool")
-                                ("tool_call_id" . ,(tool-call-id tool-call))
-                                ("content" .
-                                 ,(case (focus tool-call-status tool-call)
-                                    ((rejected)
-                                     "Error: User denied permission for this tool call")
-                                    ((cancelled)
-                                     "Error: User cancelled this tool call"))))
-                              #f))
-           (else
-            (assertion-violation (focus tool-call-status tool-call)
-                                 "Invalid tool call status")))))
-   (else
-    (tool-call-result (tool-call-session-id tool-call)
-                      (tool-call-id tool-call)
-                      #f
-                      #f
-                      (tool-call-arguments tool-call)
-                      `(("role" . "tool")
-                        ("tool_call_id" . ,(tool-call-id tool-call))
-                        ("content" .
-                         ,(string-append "Error: Function of name "
-                                         (tool-call-function tool-call)
-                                         " not found")))
-                      #f))))
+  (let ((tool (focus (key-ref (tool-call-function tool-call))
+                     tools)))
+    (case (focus tool-call-status tool-call)
+      ;; User approved tool call.
+      ((approved)
+       (guard (c ((tool-call-failure? c)
+                  (tool-call-result (tool-call-session-id tool-call)
+                                    (tool-call-id tool-call)
+                                    #f
+                                    #f
+                                    (tool-call-arguments tool-call)
+                                    `(("role" . "tool")
+                                      ("tool_call_id" . ,(tool-call-id tool-call))
+                                      ("content" . ,(tool-call-failure-message c)))
+                                    #f)))
+         (let* ((args (tool-call-arguments tool-call))
+                (filtered-args
+                 ;; Only pick out valid arguments, and error out if any required
+                 ;; arguments are missing.
+                 (alist->plist
+                  (filter-map (match-lambda
+                                ((arg-name . parameter)
+                                 (cond
+                                  ((assoc arg-name args)
+                                   => identity)
+                                  (else
+                                   (and (tool-parameter-required? parameter)
+                                        (raise-exception
+                                         (tool-call-failure
+                                          (string-append "Error: Missing required argument "
+                                                         arg-name))))))))
+                              (tool-parameters tool))))
+                ;; Actually evaluate tool call.
+                (tool-result
+                 (call-with-container*
+                     (map file-system-mapping->bind-mount
+                          ((tool-container-mappings tool)
+                           (tool-call-session-cwd tool-call)
+                           filtered-args))
+                     (tool-container-namespaces tool)
+                   (lambda ()
+                     (chdir (tool-call-session-cwd tool-call))
+                     (apply (tool-proc tool)
+                            filtered-args)))))
+           ;; Build result.
+           (tool-call-result (tool-call-session-id tool-call)
+                             (tool-call-id tool-call)
+                             (apply (tool-title tool) filtered-args)
+                             (apply (tool-kind tool) filtered-args)
+                             (tool-call-arguments tool-call)
+                             `(("role" . "tool")
+                               ("tool_call_id" . ,(tool-call-id tool-call))
+                               ("content" . ,(container-result-output tool-result)))
+                             (zero? (container-result-exit-value tool-result))))))
+      ;; User cancelled or rejected tool call.
+      ((cancelled rejected)
+       (tool-call-result (tool-call-session-id tool-call)
+                         (tool-call-id tool-call)
+                         #f
+                         #f
+                         (tool-call-arguments tool-call)
+                         `(("role" . "tool")
+                           ("tool_call_id" . ,(tool-call-id tool-call))
+                           ("content" .
+                            ,(case (focus tool-call-status tool-call)
+                               ((rejected)
+                                "Error: User denied permission for this tool call")
+                               ((cancelled)
+                                "Error: User cancelled this tool call"))))
+                         #f))
+      (else
+       (assertion-violation (focus tool-call-status tool-call)
+                            "Invalid tool call status")))))
