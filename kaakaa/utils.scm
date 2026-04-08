@@ -22,6 +22,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
   #:export (->
+            foldn
             alist->plist
             call-with-input-pipe))
 
@@ -42,6 +43,27 @@ For example:
     (expt <> 2))
 => 16"
   (->-helper x (cut proc ...) ...))
+
+(define (foldn proc lst . inits)
+  "Apply @var{proc} to the elements of @var{lst} to build a result, and return
+that result. @var{proc} may return multiple values, in which case, an equal
+number of values are returned. Each @var{proc} call is @code{(proc element
+previous ...)} where @code{element} is an element of @var{lst}, and
+@code{(previous ...)} is the return from the previous call to @var{proc} or the
+given @var{inits} for the first call. For example,
+
+(foldn (lambda (n sum sum-of-squares)
+         (values (+ sum n)
+                 (+ sum-of-squares (expt n 2))))
+       (iota 10)
+       0 0)
+=> 45
+=> 285"
+  (apply values
+         (fold (lambda (element results)
+                 (call-with-values (cut apply proc element results) list))
+               inits
+               lst)))
 
 (define (alist->plist alist)
   "Convert association list @var{alist} to a property list. Keys in
