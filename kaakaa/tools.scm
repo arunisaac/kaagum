@@ -126,7 +126,7 @@
           (id tool-call-id)
           (function tool-call-function)
           (arguments tool-call-arguments)
-          ;; One of 'approved, 'rejected or 'cancelled
+          ;; One of 'pending-approval, 'approved, 'rejected or 'cancelled
           (status tool-call-status lensed)))
 
 (define-public-record-type* (<tool-call-result> tool-call-result tool-call-result?)
