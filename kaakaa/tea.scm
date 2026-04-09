@@ -48,12 +48,19 @@
 
 (define-record-type* (<session> session session?)
   (lambda (constructor)
-    (lambda* (cwd #:key cancelling? (messages '()) (pending-tool-calls '()))
-      (constructor cwd cancelling? messages pending-tool-calls)))
+    (lambda* (cwd #:key
+                  cancelling? (messages '()) (pending-tool-calls '())
+                  (allowed-tools '()) (rejected-tools '()))
+      (constructor cwd cancelling? messages pending-tool-calls
+                   allowed-tools rejected-tools)))
   (fields (cwd session-cwd lensed)
           (cancelling? session-cancelling? lensed)
           (messages session-messages lensed)
-          (tool-calls session-tool-calls lensed)))
+          (tool-calls session-tool-calls lensed)
+          ;; List of tool names that are allowlisted for the session
+          (allowed-tools session-allowed-tools lensed)
+          ;; List of tool names that are blocklisted for the session
+          (rejected-tools session-rejected-tools lensed)))
 
 (define-record-type* (<state> state state?)
   (fields (client-request-id state-client-request-id lensed)
@@ -127,6 +134,20 @@
 (define (state-tool-calls session-id)
   "Return a lens to focus on tool calls of session with @var{session-id} in state."
   (compose session-tool-calls
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-allowed-tools session-id)
+  "Return a lens to focus on allowed tools of session with @var{session-id} in
+state."
+  (compose session-allowed-tools
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-rejected-tools session-id)
+  "Return a lens to focus on rejected tools of session with @var{session-id} in
+state."
+  (compose session-rejected-tools
            (key-ref session-id)
            state-sessions))
 
@@ -405,6 +426,10 @@ and a list of effects.
                                  (focus (state-cwd session-id)
                                         state)
                                  tools
+                                 (focus (state-allowed-tools session-id)
+                                        state)
+                                 (focus (state-rejected-tools session-id)
+                                        state)
                                  call-json))
           (request-id (focus state-agent-request-id state)))
       (values (-> state
@@ -425,30 +450,34 @@ and a list of effects.
               (let ((tool (focus (key-ref (tool-call-function call))
                                  tools))
                     (args (alist->plist (tool-call-arguments call))))
-                (map acp-message
-                     `(;; Notify client about new tool call.
-                       (("jsonrpc" . "2.0")
-                        ("method" . "session/update")
-                        ("params"
-                         ("sessionId" . ,session-id)
-                         ("update"
-                          ("sessionUpdate" . "tool_call")
-                          ("toolCallId" . ,(tool-call-id call))
-                          ("title" . ,(apply (tool-title tool) args))
-                          ("kind" . ,(apply (tool-kind tool) args))
-                          ("rawInput" . ,(tool-call-arguments call))
-                          ("status" . "pending"))))
-                       ;; Request permission from the client.
-                       (("jsonrpc" . "2.0")
-                        ("id" . ,request-id)
-                        ("method" . "session/request_permission")
-                        ("params"
-                         ("sessionId" . ,session-id)
-                         ("toolCall"
-                          ("toolCallId" . ,(tool-call-id call)))
-                         ("options" .
-                          ,(vector %tool-allow-once
-                                   %tool-reject-once)))))))))))
+                (list
+                 ;; Notify client about new tool call.
+                 (acp-message `(("jsonrpc" . "2.0")
+                                ("method" . "session/update")
+                                ("params"
+                                 ("sessionId" . ,session-id)
+                                 ("update"
+                                  ("sessionUpdate" . "tool_call")
+                                  ("toolCallId" . ,(tool-call-id call))
+                                  ("title" . ,(apply (tool-title tool) args))
+                                  ("kind" . ,(apply (tool-kind tool) args))
+                                  ("rawInput" . ,(tool-call-arguments call))
+                                  ("status" . "pending")))))
+                 ;; Request permission from the client if necessary. Else,
+                 ;; schedule the tool call.
+                 (if (eq? (focus tool-call-status call)
+                          'pending-approval)
+                     (acp-message `(("jsonrpc" . "2.0")
+                                    ("id" . ,request-id)
+                                    ("method" . "session/request_permission")
+                                    ("params"
+                                     ("sessionId" . ,session-id)
+                                     ("toolCall"
+                                      ("toolCallId" . ,(tool-call-id call)))
+                                     ("options" .
+                                      ,(vector %tool-allow-once
+                                               %tool-reject-once)))))
+                     call)))))))
 
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state

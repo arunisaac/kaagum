@@ -146,7 +146,7 @@
   tool-call-failure tool-call-failure?
   (message tool-call-failure-message))
 
-(define (spec->tool-call session-id session-cwd tools spec)
+(define (spec->tool-call session-id session-cwd tools allowed-tools rejected-tools spec)
   "Deserialize JSON tool call @var{spec} into a @code{<tool-call>}
 object. Raise a @code{&tool-call-parse-failure} condition if deserialization
 fails.
@@ -154,7 +154,8 @@ fails.
 @var{session-id} and @var{session-cwd} are the ID and current working directory
 of the session the tool call pertains to. @var{tools} is an association list
 mapping the names of all available tools to their respective @code{<tool>}
-objects."
+objects. @var{allowed-tools} and @var{rejected-tools} are the lists of tool
+names that have been respectively allowed and rejected by the user in advance."
   ;; TODO: Assert that type is function, and do more sanitization.
   (let* ((args (guard (c (else
                           (raise-exception
@@ -190,7 +191,12 @@ objects."
                                        (string-append "Error: Missing required argument "
                                                       arg-name))))))))
                            (tool-parameters tool))
-               'pending-approval)))
+               ;; Set tool call status based on pre-approved and pre-rejected
+               ;; tools.
+               (cond
+                ((member name allowed-tools) 'approved)
+                ((member name rejected-tools) 'rejected)
+                (else 'pending-approval)))))
 
 (define (eval-tool-call tool-call tools)
   "Evaluate @var{tool-call} and return a @code{<tool-call-result>}
