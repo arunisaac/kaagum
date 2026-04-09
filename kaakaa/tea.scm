@@ -496,12 +496,13 @@ state and a list of effects."
                                     ,(if (tool-call-result-success? result)
                                          "completed"
                                          "failed"))
-                                   ("content"
-                                    ("type" . "content")
-                                    ("content"
-                                     ("type" . "text")
-                                     ("text" . ,(focus (key-ref "content")
-                                                       (tool-call-result-json result)))))))))
+                                   ("content" .
+                                    ,(vector `(("type" . "content")
+                                               ("content"
+                                                ("type" . "text")
+                                                ("text" .
+                                                 ,(focus (key-ref "content")
+                                                         (tool-call-result-json result)))))))))))
                   (state->llm-requests session-id state)))))
 
 (define (next-state state message tools)
