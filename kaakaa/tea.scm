@@ -86,23 +86,28 @@
   `(("name" . ,name)
     ("description" . ,(command-description command))))
 
+(define (agent-message-chunk session-id text)
+  "Return an @samp{agent_message_chunk} @samp{session/update} ACP message for
+@var{session-id} with @var{text}."
+  (acp-message `(("jsonrpc" . "2.0")
+                 ("method" . "session/update")
+                 ("params"
+                  ("sessionId" . ,session-id)
+                  ("update"
+                   ("sessionUpdate" . "agent_message_chunk")
+                   ("content"
+                    ("type" . "text")
+                    ("text" . ,text)))))))
+
 (define %cwd-command
   (command "Print current working directory of the session"
            (lambda (state session-id _)
              (values state
-                     (list (acp-message
-                            `(("jsonrpc" . "2.0")
-                              ("method" . "session/update")
-                              ("params"
-                               ("sessionId" . ,session-id)
-                               ("update"
-                                ("sessionUpdate" . "agent_message_chunk")
-                                ("content"
-                                 ("type" . "text")
-                                 ("text" . ,(focus (compose session-cwd
-                                                            (key-ref session-id)
-                                                            state-sessions)
-                                                   state))))))))))))
+                     (list (agent-message-chunk session-id
+                                                (focus (compose session-cwd
+                                                                (key-ref session-id)
+                                                                state-sessions)
+                                                       state)))))))
 
 (define %commands
   `(("cwd" . ,%cwd-command)))
@@ -171,15 +176,8 @@ effects."
    ;; command not found
    (else
     (values state
-            (list (acp-message `(("jsonrpc" . "2.0")
-                                 ("method" . "session/update")
-                                 ("params"
-                                  ("sessionId" . ,session-id)
-                                  ("update"
-                                   ("sessionUpdate" . "agent_message_chunk")
-                                   ("content"
-                                    ("type" . "text")
-                                    ("text" . "Error: Unknown command")))))))))))
+            (list (agent-message-chunk session-id
+                                       "Error: Unknown command"))))))
 
 (define (next-state-client-request state request)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
@@ -437,17 +435,10 @@ and a list of effects.
                                    <>))
                          '())))
       (values state
-              (cons (acp-message `( ;; Send LLM's text response.
-                                   ("jsonrpc" . "2.0")
-                                   ("method" . "session/update")
-                                   ("params"
-                                    ("sessionId" . ,session-id)
-                                    ("update"
-                                     ("sessionUpdate" . "agent_message_chunk")
-                                     ("content"
-                                      ("type" . "text")
-                                      ("text" . ,(focus (key-ref "content")
-                                                        llm-reply)))))))
+              (cons (agent-message-chunk session-id
+                                         ;; Send LLM's text response.
+                                         (focus (key-ref "content")
+                                                llm-reply))
                     (append tool-call-effects
                             ;; End prompt turn if there are no further tool
                             ;; calls and a cancellation is not in progress.
