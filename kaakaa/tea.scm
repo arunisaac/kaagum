@@ -17,6 +17,7 @@
 ;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kaakaa tea)
+  #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
   #:use-module (rnrs records syntactic)
@@ -302,10 +303,25 @@ and a list of effects."
              state)
       => (lambda (tool-call)
            (let* ((session-id (tool-call-session-id tool-call))
-                  (outcome (focus (in "result" "outcome")
+                  (outcome (focus (in "result" "outcome" "outcome")
                                   response))
-                  (outcome-type (focus (key-ref "outcome")
-                                       outcome))
+                  (option-id (focus (in "result" "outcome" "optionId")
+                                    response))
+                  ;; Decode permission selection to symbol.
+                  (selection
+                   (cond
+                    ((and (string=? outcome "selected")
+                          (string=? option-id
+                                    (focus (key-ref "optionId") %tool-allow-once)))
+                     'allow-once)
+                    ((and (string=? outcome "selected")
+                          (string=? option-id
+                                    (focus (key-ref "optionId") %tool-reject-once)))
+                     'reject-once)
+                    ;; We don't explicitly look for "cancelled". We defensively
+                    ;; assume anything other than "selected" is "cancelled".
+                    ;; This protects us from buggy clients.
+                    (else 'cancel)))
                   (state
                    (-> state
                        ;; Update tool status.
@@ -314,20 +330,33 @@ and a list of effects."
                                                       session-id))
                             ;; TODO: Implement other tool permissions.
                             (cond
-                             ((string=? outcome-type "cancelled")
-                              'cancelled)
-                             ((and (string=? outcome-type "selected")
-                                   (string=? (focus (key-ref "optionId")
-                                                    outcome)
-                                             (focus (key-ref "optionId")
-                                                    %tool-allow-once)))
-                              'approved)
-                             (else 'rejected))
+                             ((eq? selection 'cancel) 'cancelled)
+                             ((eq? selection 'allow-once) 'approved)
+                             ((eq? selection 'reject-once) 'rejected)
+                             ;; This branch should be unreachable.
+                             (else
+                              (assertion-violation selection
+                                                   "Invalid selection")))
                             <>)
-                       ;; If the tool call was cancelled, set the cancelling
-                       ;; flag to indicate that a cancellation is in progress.
+                       ;; Update tool status.
+                       (put (compose tool-call-status
+                                     (state-tool-call (tool-call-id tool-call)
+                                                      session-id))
+                            (cond
+                             ((eq? selection 'cancel) 'cancelled)
+                             ((memq selection '(allow-once allow-always))
+                              'approved)
+                             ((memq selection '(reject-once reject-always))
+                              'rejected)
+                             ;; This branch should be unreachable.
+                             (else
+                              (assertion-violation selection
+                                                   "Invalid selection")))
+                            <>)
+                       ;; If the tool call was cancelled, set the cancelling flag
+                       ;; to indicate that a cancellation is in progress.
                        (put (state-session-cancelling? session-id)
-                            (string=? outcome-type "cancelled")
+                            (eq? selection 'cancel)
                             <>)
                        ;; Unregister request corresponding to this response.
                        (alist-delete-over state-requests-alist
