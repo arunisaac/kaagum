@@ -86,8 +86,26 @@
   `(("name" . ,name)
     ("description" . ,(command-description command))))
 
+(define %cwd-command
+  (command "Print current working directory of the session"
+           (lambda (state session-id _)
+             (values state
+                     (list (acp-message
+                            `(("jsonrpc" . "2.0")
+                              ("method" . "session/update")
+                              ("params"
+                               ("sessionId" . ,session-id)
+                               ("update"
+                                ("sessionUpdate" . "agent_message_chunk")
+                                ("content"
+                                 ("type" . "text")
+                                 ("text" . ,(focus (compose session-cwd
+                                                            (key-ref session-id)
+                                                            state-sessions)
+                                                   state))))))))))))
+
 (define %commands
-  '())
+  `(("cwd" . ,%cwd-command)))
 
 (define (state-messages session-id)
   "Return a lens to focus on messages of session with @var{session-id} in state."
