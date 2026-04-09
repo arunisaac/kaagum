@@ -105,13 +105,18 @@
            (lambda (state session-id _)
              (values state
                      (list (agent-message-chunk session-id
-                                                (focus (compose session-cwd
-                                                                (key-ref session-id)
-                                                                state-sessions)
+                                                (focus (state-cwd session-id)
                                                        state)))))))
 
 (define %commands
   `(("cwd" . ,%cwd-command)))
+
+(define (state-cwd session-id)
+  "Return a lens to focus on current working directory of session with
+@var{session-id} in state."
+  (compose session-cwd
+           (key-ref session-id)
+           state-sessions))
 
 (define (state-messages session-id)
   "Return a lens to focus on messages of session with @var{session-id} in state."
@@ -397,9 +402,7 @@ and a list of effects.
                                               ("toolCallId" . ,call-id)
                                               ("status" . "failed"))))))))))
     (let ((call (spec->tool-call session-id
-                                 (focus (compose session-cwd
-                                                 (key-ref session-id)
-                                                 state-sessions)
+                                 (focus (state-cwd session-id)
                                         state)
                                  tools
                                  call-json))
