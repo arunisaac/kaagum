@@ -33,7 +33,8 @@
                  ;; TODO: Handle non-existent files.
                  (display (call-with-input-file path
                             get-string-all)))
-        #:title (const "Read file")
+        #:title (lambda* (#:key path)
+                  (string-append "Read " path))
         #:kind (const "read")))
 
 (define %list-files
