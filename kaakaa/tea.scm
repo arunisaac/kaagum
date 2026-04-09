@@ -41,10 +41,20 @@
     ("name" . "Allow once")
     ("kind" . "allow_once")))
 
+(define %tool-allow-always
+  '(("optionId" . "allow-always")
+    ("name" . "Allow always")
+    ("kind" . "allow_always")))
+
 (define %tool-reject-once
   '(("optionId" . "reject-once")
     ("name" . "Reject once")
     ("kind" . "reject_once")))
+
+(define %tool-reject-always
+  '(("optionId" . "reject-always")
+    ("name" . "Reject always")
+    ("kind" . "reject_always")))
 
 (define-record-type* (<session> session session?)
   (lambda (constructor)
@@ -342,23 +352,50 @@ and a list of effects."
                      'allow-once)
                     ((and (string=? outcome "selected")
                           (string=? option-id
+                                    (focus (key-ref "optionId") %tool-allow-always)))
+                     'allow-always)
+                    ((and (string=? outcome "selected")
+                          (string=? option-id
                                     (focus (key-ref "optionId") %tool-reject-once)))
                      'reject-once)
+                    ((and (string=? outcome "selected")
+                          (string=? option-id
+                                    (focus (key-ref "optionId") %tool-reject-always)))
+                     'reject-always)
                     ;; We don't explicitly look for "cancelled". We defensively
                     ;; assume anything other than "selected" is "cancelled".
                     ;; This protects us from buggy clients.
                     (else 'cancel)))
                   (state
                    (-> state
+                       ;; If the tool was "allowed always", add it to the list
+                       ;; of allowed tools.
+                       (over (state-allowed-tools session-id)
+                             (lambda (allowed-tools)
+                               (if (eq? selection 'allow-always)
+                                   (cons (tool-call-function tool-call)
+                                         allowed-tools)
+                                   allowed-tools))
+                             <>)
+                       ;; If the tool was "rejected always", add it to the list
+                       ;; of rejected tools.
+                       (over (state-rejected-tools session-id)
+                             (lambda (rejected-tools)
+                               (if (eq? selection 'reject-always)
+                                   (cons (tool-call-function tool-call)
+                                         rejected-tools)
+                                   rejected-tools))
+                             <>)
                        ;; Update tool status.
                        (put (compose tool-call-status
                                      (state-tool-call (tool-call-id tool-call)
                                                       session-id))
-                            ;; TODO: Implement other tool permissions.
                             (cond
                              ((eq? selection 'cancel) 'cancelled)
-                             ((eq? selection 'allow-once) 'approved)
-                             ((eq? selection 'reject-once) 'rejected)
+                             ((memq selection '(allow-once allow-always))
+                              'approved)
+                             ((memq selection '(reject-once reject-always))
+                              'rejected)
                              ;; This branch should be unreachable.
                              (else
                               (assertion-violation selection
@@ -476,7 +513,9 @@ and a list of effects.
                                       ("toolCallId" . ,(tool-call-id call)))
                                      ("options" .
                                       ,(vector %tool-allow-once
-                                               %tool-reject-once)))))
+                                               %tool-allow-always
+                                               %tool-reject-once
+                                               %tool-reject-always)))))
                      call)))))))
 
 (define (next-state-llm-response state response tools)
