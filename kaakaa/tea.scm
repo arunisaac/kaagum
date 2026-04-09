@@ -492,8 +492,6 @@ state and a list of effects."
                                    ;; TODO: Add locations and rawOutput.
                                    ("sessionUpdate" . "tool_call_update")
                                    ("toolCallId" . ,(tool-call-result-call-id result))
-                                   ("title" . ,(tool-call-result-title result))
-                                   ("kind" . ,(tool-call-result-kind result))
                                    ("status" .
                                     ,(if (tool-call-result-success? result)
                                          "completed"
@@ -503,8 +501,7 @@ state and a list of effects."
                                     ("content"
                                      ("type" . "text")
                                      ("text" . ,(focus (key-ref "content")
-                                                       (tool-call-result-json result)))))
-                                   ("rawInput" . ,(tool-call-result-arguments result))))))
+                                                       (tool-call-result-json result)))))))))
                   (state->llm-requests session-id state)))))
 
 (define (next-state state message tools)
