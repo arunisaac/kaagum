@@ -364,7 +364,7 @@ and a list of effects.
                                             ("params"
                                              ("sessionId" . ,session-id)
                                              ("update"
-                                              ("sessionUpdate" . "tool_call")
+                                              ("sessionUpdate" . "tool_call_update")
                                               ("toolCallId" . ,call-id)
                                               ("status" . "failed"))))))))))
     (let ((call (spec->tool-call session-id
@@ -490,7 +490,7 @@ state and a list of effects."
                                   ("sessionId" . ,session-id)
                                   ("update"
                                    ;; TODO: Add locations and rawOutput.
-                                   ("sessionUpdate" . "tool_call")
+                                   ("sessionUpdate" . "tool_call_update")
                                    ("toolCallId" . ,(tool-call-result-call-id result))
                                    ("title" . ,(tool-call-result-title result))
                                    ("kind" . ,(tool-call-result-kind result))
