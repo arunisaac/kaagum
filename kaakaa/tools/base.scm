@@ -30,9 +30,12 @@
                                    #:description "File path to read"
                                    #:required? #t)))
         #:proc (lambda* (#:key path)
-                 ;; TODO: Handle non-existent files.
-                 (display (call-with-input-file path
-                            get-string-all)))
+                 (if (file-exists? path)
+                     (display (call-with-input-file path
+                                get-string-all))
+                     (format (current-output-port)
+                             "Error: File ~a does not exist~%"
+                             path)))
         #:title (lambda* (#:key path)
                   (string-append "Read " path))
         #:kind (const "read")))
