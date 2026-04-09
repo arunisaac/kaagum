@@ -84,50 +84,6 @@
 (define (initial-state)
   (state #f 0 0 '() '()))
 
-(define-record-type* (<llm-request> llm-request llm-request?)
-  (fields (session-id llm-request-session-id)
-          (messages llm-request-messages)))
-
-(define-record-type* (<llm-response> llm-response llm-response?)
-  (fields (session-id llm-response-session-id)
-          (json llm-response-json)))
-
-(define-record-type* (<acp-message> acp-message acp-message?)
-  (fields (json acp-message-json)))
-
-(define-record-type* (<command> command command?)
-  (fields (description command-description)
-          (next-state command-next-state)))
-
-(define (command->spec name command)
-  "Serialize @var{command} of @var{name} to ACP-compatible JSON spec."
-  `(("name" . ,name)
-    ("description" . ,(command-description command))))
-
-(define (agent-message-chunk session-id text)
-  "Return an @samp{agent_message_chunk} @samp{session/update} ACP message for
-@var{session-id} with @var{text}."
-  (acp-message `(("jsonrpc" . "2.0")
-                 ("method" . "session/update")
-                 ("params"
-                  ("sessionId" . ,session-id)
-                  ("update"
-                   ("sessionUpdate" . "agent_message_chunk")
-                   ("content"
-                    ("type" . "text")
-                    ("text" . ,text)))))))
-
-(define %cwd-command
-  (command "Print current working directory of the session"
-           (lambda (state session-id _)
-             (values state
-                     (list (agent-message-chunk session-id
-                                                (focus (state-cwd session-id)
-                                                       state)))))))
-
-(define %commands
-  `(("cwd" . ,%cwd-command)))
-
 (define (state-cwd session-id)
   "Return a lens to focus on current working directory of session with
 @var{session-id} in state."
@@ -199,6 +155,50 @@ in @var{state}."
                                               state)))))
       ;; There are tool calls or a cancellation in progress; do nothing.
       (list)))
+
+(define-record-type* (<llm-request> llm-request llm-request?)
+  (fields (session-id llm-request-session-id)
+          (messages llm-request-messages)))
+
+(define-record-type* (<llm-response> llm-response llm-response?)
+  (fields (session-id llm-response-session-id)
+          (json llm-response-json)))
+
+(define-record-type* (<acp-message> acp-message acp-message?)
+  (fields (json acp-message-json)))
+
+(define-record-type* (<command> command command?)
+  (fields (description command-description)
+          (next-state command-next-state)))
+
+(define (command->spec name command)
+  "Serialize @var{command} of @var{name} to ACP-compatible JSON spec."
+  `(("name" . ,name)
+    ("description" . ,(command-description command))))
+
+(define (agent-message-chunk session-id text)
+  "Return an @samp{agent_message_chunk} @samp{session/update} ACP message for
+@var{session-id} with @var{text}."
+  (acp-message `(("jsonrpc" . "2.0")
+                 ("method" . "session/update")
+                 ("params"
+                  ("sessionId" . ,session-id)
+                  ("update"
+                   ("sessionUpdate" . "agent_message_chunk")
+                   ("content"
+                    ("type" . "text")
+                    ("text" . ,text)))))))
+
+(define %cwd-command
+  (command "Print current working directory of the session"
+           (lambda (state session-id _)
+             (values state
+                     (list (agent-message-chunk session-id
+                                                (focus (state-cwd session-id)
+                                                       state)))))))
+
+(define %commands
+  `(("cwd" . ,%cwd-command)))
 
 (define (next-state-slash-command state session-id command-name argument)
   "Given current @var{state} and an invocation of slash var{command-name} with
