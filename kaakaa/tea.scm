@@ -24,6 +24,7 @@
   #:use-module (srfi srfi-11)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
+  #:use-module (ice-9 regex)
   #:use-module (json)
   #:use-module (lens)
   #:use-module (kaakaa lens)
@@ -76,6 +77,18 @@
 (define-record-type* (<acp-message> acp-message acp-message?)
   (fields (json acp-message-json)))
 
+(define-record-type* (<command> command command?)
+  (fields (description command-description)
+          (next-state command-next-state)))
+
+(define (command->spec name command)
+  "Serialize @var{command} of @var{name} to ACP-compatible JSON spec."
+  `(("name" . ,name)
+    ("description" . ,(command-description command))))
+
+(define %commands
+  '())
+
 (define (state-messages session-id)
   "Return a lens to focus on messages of session with @var{session-id} in state."
   (compose session-messages
@@ -127,6 +140,29 @@ in @var{state}."
       ;; There are tool calls or a cancellation in progress; do nothing.
       (list)))
 
+(define (next-state-slash-command state session-id command-name argument)
+  "Given current @var{state} and an invocation of slash var{command-name} with
+@var{argument} for @var{session-id}, return the next state and a list of
+effects."
+  (cond
+   ;; command exists
+   ((focus (key-ref command-name)
+           %commands)
+    => (lambda (command)
+         ((command-next-state command) state session-id argument)))
+   ;; command not found
+   (else
+    (values state
+            (list (acp-message `(("jsonrpc" . "2.0")
+                                 ("method" . "session/update")
+                                 ("params"
+                                  ("sessionId" . ,session-id)
+                                  ("update"
+                                   ("sessionUpdate" . "agent_message_chunk")
+                                   ("content"
+                                    ("type" . "text")
+                                    ("text" . "Error: Unknown command")))))))))))
+
 (define (next-state-client-request state request)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
 a list of effects."
@@ -165,23 +201,59 @@ a list of effects."
                           (over state-next-session-id
                                 1+
                                 <>))
-                      (list (acp-message `(("jsonrpc" . "2.0")
-                                           ("id" . ,request-id)
-                                           ("result"
-                                            ("sessionId" . ,session-id))))))))
+                      (map acp-message
+                           `(;; Return new session.
+                             (("jsonrpc" . "2.0")
+                              ("id" . ,request-id)
+                              ("result"
+                               ("sessionId" . ,session-id)))
+                             ;; Advertise available commands.
+                             (("jsonrpc" . "2.0")
+                              ("method" . "session/update")
+                              ("params"
+                               ("sessionId" . ,session-id)
+                               ("update"
+                                ("sessionUpdate" . "available_commands_update")
+                                ("availableCommands" .
+                                 ,(list->vector (map (match-lambda
+                                                       ((name . command)
+                                                        (command->spec name command)))
+                                                     %commands)))))))))))
            ("session/prompt"
-            (let* ((session-id (focus (in "params" "sessionId")
-                                      request))
-                   (state (push (state-messages session-id)
-                                `(("role" . "user")
-                                  ("content" .
-                                   ;; TODO: Filter to only allow "text" type
-                                   ;; content blocks.
-                                   ,(focus (in "params" "prompt")
-                                           request)))
-                                state)))
-              (values state
-                      (state->llm-requests session-id state))))
+            (let ((session-id (focus (in "params" "sessionId")
+                                     request))
+                  ;; TODO: Filter to only allow "text" type content blocks.
+                  (prompt (focus (in "params" "prompt")
+                                 request)))
+              (cond
+               ;; slash command
+               ((string-match "^/([a-z0-9]*)(.*)"
+                              (focus (in-json 0 "text")
+                                     prompt))
+                => (lambda (mtch)
+                     (let ((command-name (match:substring mtch 1))
+                           (argument (string-trim (match:substring mtch 2))))
+                       (let-values (((state effects)
+                                     (next-state-slash-command
+                                      state session-id command-name argument)))
+                         (values state
+                                 ;; End prompt turn immediately. This means
+                                 ;; slash commands cannot send LLM requests or
+                                 ;; initiate other exchanges.
+                                 (append effects
+                                         (list (acp-message
+                                                `(("jsonrpc" . "2.0")
+                                                  ("id" . ,request-id)
+                                                  ("result"
+                                                   ("stopReason" . "end_turn")))))))))))
+               ;; regular prompt
+               (else
+                (let ((state (push (state-messages session-id)
+                                   `(("role" . "user")
+                                     ("content" . ,prompt))
+                                   state)))
+                  (values state
+                          (state->llm-requests session-id state)))))))
            ("session/cancel"
             (let ((session-id (focus (in "params" "sessionId")
                                      request)))
