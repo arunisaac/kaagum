@@ -393,19 +393,30 @@ and a list of effects.
               (let ((tool (focus (key-ref (tool-call-function call))
                                  tools))
                     (args (alist->plist (tool-call-arguments call))))
-                (list (acp-message `(("jsonrpc" . "2.0")
-                                     ("id" . ,request-id)
-                                     ("method" . "session/request_permission")
-                                     ("params"
-                                      ("sessionId" . ,session-id)
-                                      ("toolCall"
-                                       ("toolCallId" . ,(tool-call-id call))
-                                       ("title" . ,(apply (tool-title tool) args))
-                                       ("kind" . ,(apply (tool-kind tool) args))
-                                       ("rawInput" . ,(tool-call-arguments call)))
-                                      ("options" .
-                                       ,(vector %tool-allow-once
-                                                %tool-reject-once)))))))))))
+                (map acp-message
+                     `(;; Notify client about new tool call.
+                       (("jsonrpc" . "2.0")
+                        ("method" . "session/update")
+                        ("params"
+                         ("sessionId" . ,session-id)
+                         ("update"
+                          ("sessionUpdate" . "tool_call")
+                          ("toolCallId" . ,(tool-call-id call))
+                          ("title" . ,(apply (tool-title tool) args))
+                          ("kind" . ,(apply (tool-kind tool) args))
+                          ("rawInput" . ,(tool-call-arguments call))
+                          ("status" . "pending"))))
+                       ;; Request permission from the client.
+                       (("jsonrpc" . "2.0")
+                        ("id" . ,request-id)
+                        ("method" . "session/request_permission")
+                        ("params"
+                         ("sessionId" . ,session-id)
+                         ("toolCall"
+                          ("toolCallId" . ,(tool-call-id call)))
+                         ("options" .
+                          ,(vector %tool-allow-once
+                                   %tool-reject-once)))))))))))
 
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
