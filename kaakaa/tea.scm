@@ -191,7 +191,7 @@ in @var{state}."
 
 (define %cwd-command
   (command "Print current working directory of the session"
-           (lambda (state session-id _)
+           (lambda (state session-id tools argument)
              (values state
                      (list (agent-message-chunk session-id
                                                 (focus (state-cwd session-id)
@@ -200,25 +200,29 @@ in @var{state}."
 (define %commands
   `(("cwd" . ,%cwd-command)))
 
-(define (next-state-slash-command state session-id command-name argument)
+(define (next-state-slash-command state session-id tools command-name argument)
   "Given current @var{state} and an invocation of slash var{command-name} with
 @var{argument} for @var{session-id}, return the next state and a list of
-effects."
+effects.
+
+@var{tools} is the same as in @code{tea-loop}."
   (cond
    ;; command exists
    ((focus (key-ref command-name)
            %commands)
     => (lambda (command)
-         ((command-next-state command) state session-id argument)))
+         ((command-next-state command) state session-id tools argument)))
    ;; command not found
    (else
     (values state
             (list (agent-message-chunk session-id
                                        "Error: Unknown command"))))))
 
-(define (next-state-client-request state request)
+(define (next-state-client-request state request tools)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
-a list of effects."
+a list of effects.
+
+@var{tools} is the same as in @code{tea-loop}."
   (let ((request-id (focus (key-ref "id")
                            request)))
     (cond
@@ -288,7 +292,7 @@ a list of effects."
                            (argument (string-trim (match:substring mtch 2))))
                        (let-values (((state effects)
                                      (next-state-slash-command
-                                      state session-id command-name argument)))
+                                      state session-id tools command-name argument)))
                          (values state
                                  ;; End prompt turn immediately. This means
                                  ;; slash commands cannot send LLM requests or
@@ -618,7 +622,7 @@ list of effects.
           (next-state-client-response state json-message)
           ;; message is a request/notification from the client.
           (let-values (((state effects)
-                        (next-state-client-request state json-message)))
+                        (next-state-client-request state json-message tools)))
             (values (cond
                      ;; message is a request from the client.
                      ((focus (key-ref "id") json-message)
