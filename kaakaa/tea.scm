@@ -197,6 +197,23 @@ in @var{state}."
                                                 (focus (state-cwd session-id)
                                                        state)))))))
 
+(define (markdown-table lines)
+  "Return a markdown table built from @var{lines}. Each line is a list of strings,
+each string the contents of a cell. The first line is considered the header of
+the table."
+  (define (cells->line cells)
+    (string-append "| "
+                   (string-join cells " | ")
+                   " |"))
+
+  (match lines
+    ((header other-lines ...)
+     (string-join (cons* (cells->line header)
+                         (cells->line (make-list (length header) "---"))
+                         (map cells->line
+                              other-lines))
+                  "\n"))))
+
 (define %commands
   `(("cwd" . ,%cwd-command)))
 
