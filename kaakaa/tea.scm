@@ -165,7 +165,7 @@ in @var{state}."
           (json llm-response-json)))
 
 (define-record-type* (<acp-message> acp-message acp-message?)
-  (fields (json acp-message-json)))
+  (fields (json acp-message-json lensed)))
 
 (define-record-type* (<command> command command?)
   (fields (description command-description)
@@ -655,7 +655,7 @@ list of effects.
 @var{tools} is the same as in @code{tea-loop}."
   (cond
    ((acp-message? message)
-    (let ((json-message (acp-message-json message)))
+    (let ((json-message (focus acp-message-json message)))
       (if (focus (key-ref "result") json-message)
           ;; message is a response from the client.
           (next-state-client-response state json-message)
@@ -719,7 +719,7 @@ as in @code{tea-loop}."
   (cond
    ;; Send message to client, and return the state unchanged.
    ((acp-message? effect)
-    (display (scm->json-string (acp-message-json effect)))
+    (display (scm->json-string (focus acp-message-json effect)))
     (newline)
     (flush-output-port (current-output-port))
     state)
