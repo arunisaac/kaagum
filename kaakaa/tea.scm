@@ -214,8 +214,30 @@ the table."
                               other-lines))
                   "\n"))))
 
+(define %tools-command
+  (command "List available tools and their permission status"
+           (lambda (state session-id tools argument)
+             (let* ((allowed-tools (focus (state-allowed-tools session-id)
+                                          state))
+                    (rejected-tools (focus (state-rejected-tools session-id)
+                                           state))
+                    (lines
+                     (cons (list "Tool" "Permission")
+                           (map (match-lambda
+                                  ((name . _)
+                                   (list name
+                                         (cond
+                                          ((member name allowed-tools) "allow")
+                                          ((member name rejected-tools) "reject")
+                                          (else "prompt user")))))
+                                tools))))
+               (values state
+                       (list (agent-message-chunk session-id
+                                                  (markdown-table lines))))))))
+
 (define %commands
-  `(("cwd" . ,%cwd-command)))
+  `(("cwd" . ,%cwd-command)
+    ("tools" . ,%tools-command)))
 
 (define (next-state-slash-command state session-id tools command-name argument)
   "Given current @var{state} and an invocation of slash var{command-name} with
