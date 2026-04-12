@@ -2,32 +2,32 @@
 # -*- mode: scheme; -*-
 exec guile --no-auto-compile -e main -s "$0" "$@"
 !#
-;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; kaagum --- Tiny, security-focused AI agent in Guile
 ;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
-;;; This file is part of kaakaa.
+;;; This file is part of kaagum.
 ;;;
-;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; kaagum is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; kaakaa is distributed in the hope that it will be useful, but
+;;; kaagum is distributed in the hope that it will be useful, but
 ;;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;;; General Public License for more details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (rnrs io ports)
              (srfi srfi-37)
              (ice-9 match)
-             (kaakaa config)
-             (kaakaa openai)
-             (kaakaa tea)
-             (kaakaa tools base)
-             (kaakaa utils))
+             (kaagum config)
+             (kaagum openai)
+             (kaagum tea)
+             (kaagum tools base)
+             (kaagum utils))
 
 (define (invalid-option opt name arg result)
   (error "Invalid option" name))
@@ -54,11 +54,11 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                   (acons 'help #t result)))))
 
 (define (print-usage program)
-  "Print kaakaa usage. @var{program} is the name of the executable used
-to invoke kaakaa."
+  "Print kaagum usage. @var{program} is the name of the executable used
+to invoke kaagum."
   (format (current-error-port)
           "Usage: ~a [OPTIONS]
-Run kaakaa AI agent.
+Run kaagum AI agent.
 
   --api-base-uri=URI             base API URI of LLM provider
   --api-key-command=COMMAND      command to run to get API key

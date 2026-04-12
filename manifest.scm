@@ -1,6 +1,6 @@
 (use-modules ((gnu packages guile-xyz) #:select (guile-ares-rs))
              ((gnu packages task-management) #:select (git-bug))
-             ((kaakaa-package) #:select (kaakaa))
+             ((kaagum-package) #:select (kaagum))
              (srfi srfi-1))
 
 (define (manifest-cons* . args)
@@ -13,4 +13,4 @@ with PACKAGES and all packages in ONTO-MANIFEST."
 
 (manifest-cons* git-bug
                 guile-ares-rs
-                (package->development-manifest kaakaa))
+                (package->development-manifest kaagum))

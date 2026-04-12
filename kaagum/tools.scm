@@ -1,22 +1,22 @@
-;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; kaagum --- Tiny, security-focused AI agent in Guile
 ;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
-;;; This file is part of kaakaa.
+;;; This file is part of kaagum.
 ;;;
-;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; kaagum is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; kaakaa is distributed in the hope that it will be useful, but
+;;; kaagum is distributed in the hope that it will be useful, but
 ;;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;;; General Public License for more details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (kaakaa tools)
+(define-module (kaagum tools)
   #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (rnrs conditions)
   #:use-module (rnrs exceptions)
@@ -27,9 +27,9 @@
   #:use-module (gnu system file-systems)
   #:use-module (json)
   #:use-module (lens)
-  #:use-module (kaakaa container)
-  #:use-module (kaakaa records)
-  #:use-module (kaakaa utils)
+  #:use-module (kaagum container)
+  #:use-module (kaagum records)
+  #:use-module (kaagum utils)
   #:export (tool-call-parse-failure?
             tool-call-parse-failure-message
 

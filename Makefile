@@ -1,22 +1,22 @@
-# kaakaa --- Tiny, security-focused AI agent in Guile
+# kaagum --- Tiny, security-focused AI agent in Guile
 # Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 #
-# This file is part of kaakaa.
+# This file is part of kaagum.
 #
-# kaakaa is free software: you can redistribute it and/or modify it
+# kaagum is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# kaakaa is distributed in the hope that it will be useful, but
+# kaagum is distributed in the hope that it will be useful, but
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+# along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
-project = kaakaa
+project = kaagum
 version = 0.1.0
 
 GIT = git
@@ -45,7 +45,7 @@ scripts = $(wildcard bin/*)
 tests = $(wildcard tests/*.scm)
 distribute_files = $(sources) $(config_file_template) $(scripts) \
                    $(tests) pre-inst-env guix.scm \
-                   .guix/kaakaa-package.scm Makefile \
+                   .guix/kaagum-package.scm Makefile \
                    COPYING README.md
 
 scmdir = $(datarootdir)/guile/site/$(guile_effective_version)

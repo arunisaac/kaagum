@@ -1,27 +1,27 @@
-;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; kaagum --- Tiny, security-focused AI agent in Guile
 ;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
-;;; This file is part of kaakaa.
+;;; This file is part of kaagum.
 ;;;
-;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; kaagum is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; kaakaa is distributed in the hope that it will be useful, but
+;;; kaagum is distributed in the hope that it will be useful, but
 ;;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;;; General Public License for more details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (kaakaa container)
+(define-module (kaagum container)
   #:use-module (rnrs io ports)
   #:use-module (ice-9 match)
   #:use-module (gnu build linux-container)
   #:use-module (guix utils)
-  #:use-module (kaakaa records)
+  #:use-module (kaagum records)
   #:export (call-with-container*))
 
 (define-public-record-type* (<container-result> container-result container-result?)

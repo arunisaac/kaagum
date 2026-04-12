@@ -1,8 +1,8 @@
-kaakaa (pronounced kah-kah) is a tiny, security-focused AI agent written in Guile with minimal dependencies. Kaakaa works with any LLM that provides an OpenAI-compatible API.
+kaagum (pronounced kah-kah) is a tiny, security-focused AI agent written in Guile with minimal dependencies. Kaagum works with any LLM that provides an OpenAI-compatible API.
 
-kaakaa runs tool calls securely using containers and capability-based access. Tool calls have limited or no access to the filesystem and to the network. Capabilities allow network access to be controlled with fine granularity. Containers are implemented using Guix's container API.
+kaagum runs tool calls securely using containers and capability-based access. Tool calls have limited or no access to the filesystem and to the network. Capabilities allow network access to be controlled with fine granularity. Containers are implemented using Guix's container API.
 
-Kaakaa offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice.
+Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice.
 
 # Author's note on AI use
 
@@ -18,8 +18,10 @@ Despite being an AI agent, all code in this project is lovingly hand-crafted. I 
 
 # License
 
-kaakaa is free software released under the terms of the [GNU General Public License](https://www.gnu.org/licenses/gpl.html), either version 3 of the License, or (at your option) any later version.
+kaagum is free software released under the terms of the [GNU General Public License](https://www.gnu.org/licenses/gpl.html), either version 3 of the License, or (at your option) any later version.
 
 # The Name
 
-kaakaa (காக்கா—pronounced kah-kah) means "crow" 🐦‍⬛ in Tamil. It also evokes "kaaka" (காக்க—pronounced kah-kuh), meaning "to protect". Crows are intelligent birds, and kaakaa protects you from reckless/malicious tool use by LLMs.
+kaagum (காகம்—pronounced kah-gum) means "crow" 🐦‍⬛ in Tamil. It also evokes "kaa" (கா—pronounced kah), a verb that means "to protect". Crows are intelligent birds, and kaagum protects you from reckless/malicious tool use by LLMs.
+
+In colloquial Tamil, crows are also called "kaakaa"—which is similar to the word for shit in many European languages. Just a gentle reminder that LLMs, despite how intelligent they sometimes seem, often produce shitty code—rather like the crows that bombard you with aerial excrement when you least expect it.

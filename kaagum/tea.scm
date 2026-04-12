@@ -1,22 +1,22 @@
-;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; kaagum --- Tiny, security-focused AI agent in Guile
 ;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
-;;; This file is part of kaakaa.
+;;; This file is part of kaagum.
 ;;;
-;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; kaagum is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; kaakaa is distributed in the hope that it will be useful, but
+;;; kaagum is distributed in the hope that it will be useful, but
 ;;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;;; General Public License for more details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (kaakaa tea)
+(define-module (kaagum tea)
   #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
@@ -28,11 +28,11 @@
   #:use-module (ice-9 regex)
   #:use-module (json)
   #:use-module (lens)
-  #:use-module (kaakaa lens)
-  #:use-module (kaakaa openai)
-  #:use-module (kaakaa records)
-  #:use-module (kaakaa tools)
-  #:use-module (kaakaa utils)
+  #:use-module (kaagum lens)
+  #:use-module (kaagum openai)
+  #:use-module (kaagum records)
+  #:use-module (kaagum tools)
+  #:use-module (kaagum utils)
   #:export (initial-state
             tea-loop))
 
@@ -283,8 +283,8 @@ a list of effects.
                                           ("protocolVersion" . 1)
                                           ("agentCapabilities")
                                           ("agentInfo"
-                                           ("name" . "kaakaa")
-                                           ("title" . "Kaakaa")
+                                           ("name" . "kaagum")
+                                           ("title" . "Kaagum")
                                            ("version" . "0.1.0"))
                                           ("authMethods" . #())))))))
            ("session/new"

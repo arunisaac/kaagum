@@ -1,22 +1,22 @@
-;;; kaakaa --- Tiny, security-focused AI agent in Guile
+;;; kaagum --- Tiny, security-focused AI agent in Guile
 ;;; Copyright © 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
-;;; This file is part of kaakaa.
+;;; This file is part of kaagum.
 ;;;
-;;; kaakaa is free software: you can redistribute it and/or modify it
+;;; kaagum is free software: you can redistribute it and/or modify it
 ;;; under the terms of the GNU General Public License as published by
 ;;; the Free Software Foundation, either version 3 of the License, or
 ;;; (at your option) any later version.
 ;;;
-;;; kaakaa is distributed in the hope that it will be useful, but
+;;; kaagum is distributed in the hope that it will be useful, but
 ;;; WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ;;; General Public License for more details.
 ;;;
 ;;; You should have received a copy of the GNU General Public License
-;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
+;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (kaakaa-package)
+(define-module (kaagum-package)
   #:use-module ((gnu packages guile)
                 #:select (guile-3.0 guile-json-4))
   #:use-module ((gnu packages guile-xyz)
@@ -30,12 +30,12 @@
   #:use-module (guix packages)
   #:use-module (guix utils))
 
-(define-public kaakaa
+(define-public kaagum
   (package
-    (name "kaakaa")
+    (name "kaagum")
     (version "0.1.0")
     (source (local-file ".."
-                        "kaakaa-checkout"
+                        "kaagum-checkout"
                         #:recursive? #t
                         #:select? (or (git-predicate (dirname (current-source-directory)))
                                       (const #t))))
@@ -52,7 +52,7 @@
              #~(modify-phases %standard-phases
                  (replace 'patch-source-shebangs
                    (lambda* (#:key inputs #:allow-other-keys)
-                     (substitute* "bin/kaakaa"
+                     (substitute* "bin/kaagum"
                        (("^exec guile")
                         (string-append "exec "
                                        (search-input-file inputs "/bin/guile"))))))
@@ -61,7 +61,7 @@
                    (lambda* (#:key inputs outputs #:allow-other-keys)
                      (let ((out (assoc-ref outputs "out"))
                            (effective-version (target-guile-effective-version)))
-                       (wrap-program (string-append out "/bin/kaakaa")
+                       (wrap-program (string-append out "/bin/kaagum")
                          `("GUILE_LOAD_PATH" prefix
                            (,(string-append out "/share/guile/site/" effective-version)
                             ,(getenv "GUILE_LOAD_PATH")))
@@ -73,22 +73,22 @@
      (list guile-3.0 guile-json-4 guile-lens guix))
     (native-inputs
      (list guile-run64))
-    (home-page "https://forge.systemreboot.net/kaakaa")
+    (home-page "https://forge.systemreboot.net/kaagum")
     (synopsis "Tiny, security-focused AI agent in Guile")
     (description
-     "kaakaa is a tiny, security-focused AI agent written in Guile with
-minimal dependencies. Kaakaa works with any LLM that provides an
+     "kaagum is a tiny, security-focused AI agent written in Guile with
+minimal dependencies. Kaagum works with any LLM that provides an
 OpenAI-compatible API.
 
-kaakaa runs tool calls securely using containers and capability-based
+kaagum runs tool calls securely using containers and capability-based
 access. Tool calls have limited or no access to the filesystem and to
 the network. Capabilities allow network access to be controlled with
 fine granularity. Containers are implemented using Guix's container
 API.
 
-kaakaa offers no user interface on its own. Instead, it speaks
+kaagum offers no user interface on its own. Instead, it speaks
 the @acronym{ACP, Agent Client Protocol} and allows you to use any
 compatible user interface of your choice.")
     (license license:gpl3+)))
 
-kaakaa
+kaagum

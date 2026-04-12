@@ -1,1 +1,1 @@
-.guix/kaakaa-package.scm
+.guix/kaagum-package.scm
