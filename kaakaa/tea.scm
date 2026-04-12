@@ -141,14 +141,21 @@ in @var{state}."
       ;; progress; dispatch to LLM.
       (list (llm-request session-id
                          (map (lambda (message)
-                                ;; Strip out all fields (such as reasoning
-                                ;; fields) other than role, content and
-                                ;; tool_calls.
-                                (filter (match-lambda
-                                          ((key . _)
-                                           (member key (list "role" "content"
-                                                             "tool_calls"))))
-                                        message))
+                                ;; Strip unnecessary fields (such as reasoning
+                                ;; fields) based on role.
+                                (let* ((role (focus (key-ref "role") message))
+                                       (allowed-fields
+                                        (cond
+                                         ((string=? role "user")
+                                          '("role" "content"))
+                                         ((string=? role "assistant")
+                                          '("role" "content" "tool_calls"))
+                                         ((string=? role "tool")
+                                          '("role" "content" "tool_call_id")))))
+                                  (filter (match-lambda
+                                            ((key . _)
+                                             (member key allowed-fields)))
+                                          message)))
                               ;; Reverse because we have been prepending new
                               ;; messages onto the list.
                               (reverse (focus (state-messages session-id)
