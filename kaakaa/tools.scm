@@ -72,7 +72,7 @@
 
 (define-public-record-type* (<tool-parameter> tool-parameter tool-parameter?)
   (lambda (constructor)
-    (lambda* (#:key type description (required? #t))
+    (lambda* (#:key type description required?)
       (unless type
         (raise-exception
          (condition (make-violation)
