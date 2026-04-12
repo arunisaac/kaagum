@@ -19,9 +19,12 @@
 (define-module (kaakaa tools base)
   #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
+  #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-171)
   #:use-module (ice-9 format)
   #:use-module (ice-9 ftw)
+  #:use-module (ice-9 match)
   #:use-module (ice-9 regex)
   #:use-module (kaakaa tools)
   #:export (%list-files
@@ -164,8 +167,59 @@ For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
                       (format #f "list ~a" root)))
         #:kind (const "search")))
 
+(define %search
+  (tool #:description "Print lines that match a pattern (similar to grep)
+
+Similar to grep, the output is three colon separated columns—the file path, the
+line number and the matching line. Line numbers start from 1."
+        #:parameters `(("pattern" . ,(tool-parameter
+                                      #:type "string"
+                                      #:description "POSIX extended regular expression to search for"
+                                      #:required? #t))
+                       ("files-root" . ,(tool-parameter
+                                         #:type "string"
+                                         #:description "Root path to start search from"
+                                         #:required? #t))
+                       ("files-pattern" . ,(tool-parameter
+                                            #:type "string"
+                                            #:description
+                                            "POSIX extended regular expression to match basename (including extension) of
+file against. Default matches all files.
+
+For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
+        #:proc (lambda* (#:key pattern files-root (files-pattern "."))
+                 (let* ((pattern-rx (make-regexp* pattern))
+                        (line-matcher (match-lambda
+                                        ((_ . line)
+                                         (regexp-exec pattern-rx line))))
+                        (make-line-logger (lambda (file)
+                                            (match-lambda*
+                                              ((result (line-number . line))
+                                               (format (current-output-port)
+                                                       "~a:~a:~a~%"
+                                                       file line-number line))))))
+                   (for-each (lambda (file)
+                               (call-with-input-file file
+                                 (cut port-transduce
+                                      (compose (tenumerate 1)
+                                               (tfilter line-matcher)
+                                               (tlog (make-line-logger file)))
+                                      (const #t)
+                                      get-line
+                                      <>)))
+                             (remove binary-file?
+                                     (files-recursively files-root files-pattern)))))
+        #:title (lambda* (#:key pattern files-root files-pattern)
+                  (if files-pattern
+                      (format #f "shortlist files matching ~s in ~a, then search for lines matching ~s"
+                              files-pattern files-root pattern)
+                      (format #f "search for lines matching ~s in files under ~a"
+                              pattern files-root)))
+        #:kind (const "search")))
+
 (define %base-tools
   `(("read" . ,%read)
-    ("list" . ,%list)))
+    ("list" . ,%list)
+    ("search" . ,%search)))
 
-;; TODO: Implement write and grep.
+;; TODO: Implement write.
