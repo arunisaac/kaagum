@@ -19,8 +19,10 @@
 (define-module (kaakaa tools base)
   #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
-  #:use-module (guix build utils)
   #:use-module (srfi srfi-171)
+  #:use-module (ice-9 format)
+  #:use-module (ice-9 ftw)
+  #:use-module (ice-9 regex)
   #:use-module (kaakaa tools)
   #:export (%list-files
             %base-tools))
@@ -38,6 +40,55 @@
         (set-port-conversion-strategy! port 'error)
         (get-string-n port (* 10 1024))))
     #f))
+
+(define (make-regexp* pattern)
+  "Like @code{make-regexp}, but report an error and abort if @var{pattern} is not a
+valid regular expression."
+  (guard (c ((eq? (exception-kind c)
+                  'regular-expression-syntax)
+             (format (current-output-port)
+                     "Error: Invalid regular expression: ~s~%"
+                     pattern)
+             (exit #f)))
+    (make-regexp pattern)))
+
+(define (files-recursively directory pattern)
+  "Return a list of all files recursively down @var{directory} whose basename
+matches regular expression @var{pattern}. Hidden directories are not traversed."
+  (cond
+   ((not (file-exists? directory))
+    (format (current-output-port)
+            "Error: Directory ~a does not exist~%"
+            directory)
+    (exit #f))
+   ((not (eq? (stat:type (stat directory))
+              'directory))
+    (format (current-output-port)
+            "Error: ~a is not a directory~%"
+            directory)
+    (exit #f))
+   (else
+    (let ((pattern-rx (make-regexp* pattern)))
+      (file-system-fold (lambda (path stat result)
+                          (not (string-prefix? "." (basename path))))
+                        (lambda (path stat result)
+                          (if (regexp-exec pattern-rx (basename path))
+                              (cons path result)
+                              result))
+                        (lambda (path stat result)
+                          result)
+                        (lambda (path stat result)
+                          result)
+                        (lambda (path stat result)
+                          result)
+                        (lambda (path stat errno result)
+                          (format (current-output-port)
+                                  "Error: ~a: ~a~%"
+                                  path
+                                  (strerror errno))
+                          result)
+                        (list)
+                        (canonicalize-path directory))))))
 
 (define %read
   (tool #:description "Read whole text file, or optionally a subset of its lines.
@@ -83,19 +134,38 @@ Line numbers start from 1. Output is the raw file contents without line numbers.
                           path start-line (or end-line "")))
         #:kind (const "read")))
 
-(define %list-files
-  (tool #:description "List files in current directory"
-        #:parameters (list)
-        #:proc (lambda _
-                 (for-each (lambda (file)
-                             (display file)
-                             (newline))
-                           (find-files (getcwd))))
-        #:title (const "List files")
-        #:kind (const "read")))
+(define %list
+  (tool #:description "List files recursively.
+
+The output is in three columns—the file type, the file size and the file path."
+        #:parameters `(("root" . ,(tool-parameter
+                                   #:type "string"
+                                   #:description "Root path to list from"
+                                   #:required? #t))
+                       ("pattern" . ,(tool-parameter
+                                      #:type "string"
+                                      #:description
+                                      "POSIX extended regular expression to match basename (including extension) of
+file against. Default matches all files.
+
+For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
+        #:proc (lambda* (#:key root (pattern "."))
+                 (for-each (lambda (path)
+                             (let ((st (stat path)))
+                               (format (current-output-port)
+                                       "~a~/~a~/~a~%"
+                                       (stat:type st)
+                                       (stat:size st)
+                                       path)))
+                           (files-recursively root pattern)))
+        #:title (lambda* (#:key root pattern)
+                  (if pattern
+                      (format #f "list ~s in ~a" pattern root)
+                      (format #f "list ~a" root)))
+        #:kind (const "search")))
 
 (define %base-tools
   `(("read" . ,%read)
-    ("list-files" . ,%list-files)))
+    ("list" . ,%list)))
 
-;; TODO: Implement write, grep and find.
+;; TODO: Implement write and grep.
