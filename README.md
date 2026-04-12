@@ -1,4 +1,4 @@
-kaagum (pronounced kah-kah) is a tiny, security-focused AI agent written in Guile with minimal dependencies. Kaagum works with any LLM that provides an OpenAI-compatible API.
+kaagum (pronounced *kah-gum*) is a tiny, security-focused AI agent written in Guile with minimal dependencies. Kaagum works with any LLM that provides an OpenAI-compatible API.
 
 kaagum runs tool calls securely using containers and capability-based access. Tool calls have limited or no access to the filesystem and to the network. Capabilities allow network access to be controlled with fine granularity. Containers are implemented using Guix's container API.
 
