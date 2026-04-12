@@ -22,6 +22,6 @@ kaagum is free software released under the terms of the [GNU General Public Lice
 
 # The Name
 
-kaagum (காகம்—pronounced kah-gum) means “crow” 🐦‍⬛ in Tamil. It also evokes “kaa” (கா—pronounced kah), a verb that means “to protect”. Crows are intelligent birds, and kaagum protects you from reckless/malicious tool use by LLMs.
+kaagum (காகம்—pronounced *kah-gum*) means *crow* 🐦‍⬛ in Tamil. It also evokes *kaa* (கா—pronounced *kah*), a verb that means *to protect*. Crows are intelligent birds, and kaagum protects you from reckless/malicious tool use by LLMs.
 
-In colloquial Tamil, crows are also called “kaakaa”—which is similar to the word for shit in many European languages. Just a gentle reminder that LLMs, despite how intelligent they sometimes seem, often produce shitty code—rather like the crows that bombard you with aerial excrement when you least expect it.
+In colloquial Tamil, crows are also called *kaakaa*—which is similar to the word for shit in many European languages. Just a gentle reminder that LLMs, despite how intelligent they sometimes seem, often produce shitty code—rather like the crows that bombard you with aerial excrement when you least expect it.
