@@ -234,7 +234,7 @@ available tools to their respective @code{<tool>} objects."
            (tool-call-result (tool-call-session-id tool-call)
                              (tool-call-id tool-call)
                              (apply (tool-title tool) args)
-                             (apply (tool-kind tool) args)
+                             (tool-kind tool)
                              (tool-call-arguments tool-call)
                              `(("role" . "tool")
                                ("tool_call_id" . ,(tool-call-id tool-call))

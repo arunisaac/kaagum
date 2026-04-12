@@ -590,7 +590,7 @@ and a list of effects.
                                          ("sessionUpdate" . "tool_call")
                                          ("toolCallId" . ,(tool-call-id call))
                                          ("title" . ,(apply (tool-title tool) args))
-                                         ("kind" . ,(apply (tool-kind tool) args))
+                                         ("kind" . ,(tool-kind tool))
                                          ("rawInput" . ,(tool-call-arguments call))
                                          ("status" . "pending"))))))
                       effects))))))

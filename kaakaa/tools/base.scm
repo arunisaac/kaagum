@@ -135,7 +135,7 @@ Line numbers start from 1. Output is the raw file contents without line numbers.
         #:title (lambda* (#:key path (start-line 1) end-line)
                   (format #f "read ~a:~a-~a"
                           path start-line (or end-line "")))
-        #:kind (const "read")))
+        #:kind "read"))
 
 (define %list
   (tool #:description "List files recursively.
@@ -165,7 +165,7 @@ For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
                   (if pattern
                       (format #f "list ~s in ~a" pattern root)
                       (format #f "list ~a" root)))
-        #:kind (const "search")))
+        #:kind "search"))
 
 (define %search
   (tool #:description "Print lines that match a pattern (similar to grep)
@@ -215,7 +215,7 @@ For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
                               files-pattern files-root pattern)
                       (format #f "search for lines matching ~s in files under ~a"
                               pattern files-root)))
-        #:kind (const "search")))
+        #:kind "search"))
 
 (define %base-tools
   `(("read" . ,%read)
