@@ -39,18 +39,25 @@ Line numbers start from 1. Output is the raw file contents without line numbers.
                                        #:type "integer"
                                        #:description "Read up to this line number (inclusive). Default is the last line of the file.")))
         #:proc (lambda* (#:key path (start-line 1) end-line)
-                 (call-with-input-file path
-                   (cut port-transduce
-                        (compose (tdrop (1- start-line))
-                                 (if end-line
-                                     (ttake (- end-line (1- start-line)))
-                                     (tmap identity))
-                                 (tlog (lambda (result input)
-                                         (display input)
-                                         (newline))))
-                        (const #t)
-                        get-line
-                        <>)))
+                 (cond
+                  ((not (file-exists? path))
+                   (format (current-output-port)
+                           "Error: File ~a does not exist~%"
+                           path)
+                   (exit #f))
+                  (else
+                   (call-with-input-file path
+                     (cut port-transduce
+                          (compose (tdrop (1- start-line))
+                                   (if end-line
+                                       (ttake (- end-line (1- start-line)))
+                                       (tmap identity))
+                                   (tlog (lambda (result input)
+                                           (display input)
+                                           (newline))))
+                          (const #t)
+                          get-line
+                          <>)))))
         #:title (lambda* (#:key path (start-line 1) end-line)
                   (format #f "read ~a:~a-~a"
                           path start-line (or end-line "")))
