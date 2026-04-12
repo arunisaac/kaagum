@@ -19,25 +19,41 @@
 (define-module (kaakaa tools base)
   #:use-module (rnrs io ports)
   #:use-module (guix build utils)
+  #:use-module (srfi srfi-171)
   #:use-module (kaakaa tools)
   #:export (%list-files
             %base-tools))
 
 (define %read
-  (tool #:description "Read file"
+  (tool #:description "Read whole text file, or optionally a subset of its lines.
+
+Line numbers start from 1. Output is the raw file contents without line numbers."
         #:parameters `(("path" . ,(tool-parameter
                                    #:type "string"
                                    #:description "File path to read"
-                                   #:required? #t)))
-        #:proc (lambda* (#:key path)
-                 (if (file-exists? path)
-                     (display (call-with-input-file path
-                                get-string-all))
-                     (format (current-output-port)
-                             "Error: File ~a does not exist~%"
-                             path)))
-        #:title (lambda* (#:key path)
-                  (string-append "Read " path))
+                                   #:required? #t))
+                       ("start-line" . ,(tool-parameter
+                                         #:type "integer"
+                                         #:description "Read file starting from this line number (inclusive). Default is 1."))
+                       ("end-line" . ,(tool-parameter
+                                       #:type "integer"
+                                       #:description "Read up to this line number (inclusive). Default is the last line of the file.")))
+        #:proc (lambda* (#:key path (start-line 1) end-line)
+                 (call-with-input-file path
+                   (cut port-transduce
+                        (compose (tdrop (1- start-line))
+                                 (if end-line
+                                     (ttake (- end-line (1- start-line)))
+                                     (tmap identity))
+                                 (tlog (lambda (result input)
+                                         (display input)
+                                         (newline))))
+                        (const #t)
+                        get-line
+                        <>)))
+        #:title (lambda* (#:key path (start-line 1) end-line)
+                  (format #f "read ~a:~a-~a"
+                          path start-line (or end-line "")))
         #:kind (const "read")))
 
 (define %list-files
