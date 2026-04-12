@@ -17,12 +17,27 @@
 ;;; along with kaakaa.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kaakaa tools base)
+  #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
   #:use-module (guix build utils)
   #:use-module (srfi srfi-171)
   #:use-module (kaakaa tools)
   #:export (%list-files
             %base-tools))
+
+(define (binary-file? file)
+  "Return @code{#t} if @var{file} is a binary file. Else, return @code{#f}."
+  ;; We use the following heuristic: If there are character decoding errors in
+  ;; the first 10K characters, we assume that this is a binary file.
+  (guard (c ((or (i/o-decoding-error? c)
+                 (eq? (exception-kind c)
+                      'decoding-error))
+             #t))
+    (call-with-input-file file
+      (lambda (port)
+        (set-port-conversion-strategy! port 'error)
+        (get-string-n port (* 10 1024))))
+    #f))
 
 (define %read
   (tool #:description "Read whole text file, or optionally a subset of its lines.
@@ -43,6 +58,11 @@ Line numbers start from 1. Output is the raw file contents without line numbers.
                   ((not (file-exists? path))
                    (format (current-output-port)
                            "Error: File ~a does not exist~%"
+                           path)
+                   (exit #f))
+                  ((binary-file? path)
+                   (format (current-output-port)
+                           "Error: File ~a is binary, not text~%"
                            path)
                    (exit #f))
                   (else
