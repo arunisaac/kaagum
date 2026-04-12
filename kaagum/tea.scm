@@ -28,6 +28,7 @@
   #:use-module (ice-9 regex)
   #:use-module (json)
   #:use-module (lens)
+  #:use-module (kaagum config)
   #:use-module (kaagum lens)
   #:use-module (kaagum openai)
   #:use-module (kaagum records)
@@ -283,9 +284,9 @@ a list of effects.
                                           ("protocolVersion" . 1)
                                           ("agentCapabilities")
                                           ("agentInfo"
-                                           ("name" . "kaagum")
-                                           ("title" . "Kaagum")
-                                           ("version" . "0.1.0"))
+                                           ("name" . ,%project)
+                                           ("title" . ,%project-title)
+                                           ("version" . ,%version))
                                           ("authMethods" . #())))))))
            ("session/new"
             (let ((session-id
