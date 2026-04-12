@@ -17,12 +17,15 @@
 ;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kaagum-package)
+  #:use-module ((gnu packages emacs-xyz)
+                #:select (emacs-agent-shell))
   #:use-module ((gnu packages guile)
                 #:select (guile-3.0 guile-json-4))
   #:use-module ((gnu packages guile-xyz)
                 #:select (guile-lens guile-run64))
   #:use-module ((gnu packages package-management)
                 #:select (guix))
+  #:use-module (guix build-system emacs)
   #:use-module (guix build-system gnu)
   #:use-module (guix gexp)
   #:use-module (guix git-download)
@@ -89,6 +92,34 @@ API.
 kaagum offers no user interface on its own. Instead, it speaks
 the @acronym{ACP, Agent Client Protocol} and allows you to use any
 compatible user interface of your choice.")
+    (license license:gpl3+)))
+
+(define-public emacs-agent-shell-kaagum
+  (package
+    (name "emacs-agent-shell-kaagum")
+    (version "0.1.0")
+    (source (package-source kaagum))
+    (build-system emacs-build-system)
+    (arguments
+     (list #:tests? #f  ; no tests
+           #:phases
+           #~(modify-phases %standard-phases
+               (add-after 'unpack 'enter-elisp-dir
+                 (lambda _
+                   (chdir "emacs")))
+               (add-after 'enter-elisp-dir 'configure
+                 (lambda _
+                   (emacs-substitute-variables "agent-shell-kaagum.el"
+                     ("agent-shell-kaagum-command"
+                      (which "kaagum"))))))))
+    (inputs
+     (list kaagum))
+    (propagated-inputs
+     (list emacs-agent-shell))
+    (home-page (package-home-page kaagum))
+    (synopsis "agent-shell integration for the kaagum AI agent")
+    (description "This package provides agent-shell integration for the kaagum
+AI agent.")
     (license license:gpl3+)))
 
 kaagum
