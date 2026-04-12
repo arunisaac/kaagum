@@ -18,10 +18,14 @@
 
 (define-module (kaagum config)
   #:export (%project
+            %project-title
             %version))
 
 (define %project
   "@PROJECT@")
+
+(define %project-title
+  "@PROJECT_TITLE")
 
 (define %version
   "@VERSION@")

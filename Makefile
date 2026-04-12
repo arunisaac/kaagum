@@ -17,6 +17,7 @@
 # along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 project = kaagum
+project_title = Kaagum
 version = 0.1.0
 
 GIT = git
@@ -56,7 +57,7 @@ godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
 all: $(objects) $(config_file)
 
 %.scm: %.scm.in
-	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@VERSION@|$(version)|' $< > $@
+	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@PROJECT_TITLE@|$(project_title)|' -e 's|@VERSION@|$(version)|' $< > $@
 
 %.go: %.scm $(config_file)
 	GUILE_AUTO_COMPILE=0 $(GUILD) compile -L . -o $@ $<
