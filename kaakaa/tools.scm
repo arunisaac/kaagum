@@ -187,7 +187,7 @@ names that have been respectively allowed and rejected by the user in advance."
                                (else
                                 (and (tool-parameter-required? parameter)
                                      (raise-exception
-                                      (tool-call-failure
+                                      (tool-call-parse-failure
                                        (string-append "Error: Missing required argument "
                                                       arg-name))))))))
                            (tool-parameters tool))
