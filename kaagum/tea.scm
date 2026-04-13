@@ -34,8 +34,7 @@
   #:use-module (kaagum records)
   #:use-module (kaagum tools)
   #:use-module (kaagum utils)
-  #:export (initial-state
-            tea-loop))
+  #:export (run-tea-loop))
 
 (define %tool-allow-once
   '(("optionId" . "allow-once")
@@ -83,9 +82,6 @@
           ;; permission is sought
           (requests-alist state-requests-alist lensed)
           (sessions state-sessions lensed)))
-
-(define (initial-state)
-  (state #f 0 0 '() '()))
 
 (define (state-cwd session-id)
   "Return a lens to focus on current working directory of session with
@@ -264,7 +260,7 @@ the table."
 @var{argument} for @var{session-id}, return the next state and a list of
 effects.
 
-@var{tools} is the same as in @code{tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}."
   (cond
    ;; command exists
    ((focus (key-ref command-name)
@@ -281,7 +277,7 @@ effects.
   "Given current @var{state} and a new ACP @var{request}, return the next state and
 a list of effects.
 
-@var{model} and @var{tools} are the same as in @code{tea-loop}."
+@var{model} and @var{tools} are the same as in @code{run-tea-loop}."
   (let ((request-id (focus (key-ref "id")
                            request)))
     (cond
@@ -534,7 +530,7 @@ the agent to the client. Stash @var{context} against request ID in
   "Given current @var{state} and a new tool @var{call-json}, return the next state
 and a list of effects.
 
-@var{tools} is the same as in @code{tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}."
   (guard (c ((tool-call-parse-failure? c)
              (let ((call-id (focus (key-ref "id") call-json)))
                (values (-> state
@@ -613,7 +609,7 @@ and a list of effects.
   "Given current @var{state} and a new LLM @var{response}, return the next state
 and a list of effects.
 
-@var{tools} is the same as in @code{tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (focus (in-json "choices" 0 "message")
                            (llm-response-json response)))
@@ -700,7 +696,7 @@ state and a list of effects."
   "Given current @var{state} and a new @var{message}, return the next state and a
 list of effects.
 
-@var{model} and @var{tools} are the same as in @code{tea-loop}."
+@var{model} and @var{tools} are the same as in @code{run-tea-loop}."
   (cond
    ((acp-message? message)
     (let ((json-message (focus acp-message-json message)))
@@ -728,11 +724,8 @@ list of effects.
 (define (tea-loop state llm-base-uri llm-api-key model tools)
   "Run a @acronym{TEA, The Elm Architecture} loop starting with @var{state}.
 
-@var{llm-base-uri} is the base URI of the LLM provider. @var{llm-api-key} is the
-API key to authenticate with the LLM provider. @var{model} is the name of the
-model to initialize sessions with. @var{tools} is the list of tools made
-available to the LLM. It is an association list matching tool names to
-@code{<tool>} objects."
+@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
+as in @code{run-tea-loop}."
   ;; Read a JSON-RPC message, handle it, and loop.
   (let ((line (get-line (current-input-port))))
     (unless (eof-object? line)
@@ -751,7 +744,7 @@ available to the LLM. It is an association list matching tool names to
   "Handle @var{event} with @var{state} and return a new state.
 
 @var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
-as in @code{tea-loop}."
+as in @code{run-tea-loop}."
   (let-values (((state effects)
                 ;; Compute the next state and collect the effects.
                 (next-state state event model tools)))
@@ -764,7 +757,7 @@ as in @code{tea-loop}."
   "Do @var{effect} with @var{state} and return a new state.
 
 @var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
-as in @code{tea-loop}."
+as in @code{run-tea-loop}."
   (cond
    ;; Send message to client, and return the state unchanged.
    ((acp-message? effect)
@@ -797,3 +790,15 @@ as in @code{tea-loop}."
                   llm-api-key
                   model
                   tools))))
+
+(define (run-tea-loop llm-base-uri llm-api-key model tools)
+  "Run a @acronym{TEA, The Elm Architecture} loop. @var{llm-base-uri} is the base
+URI of the LLM provider. @var{llm-api-key} is the API key to authenticate with
+the LLM provider. @var{model} is the name of the model to initialize sessions
+with. @var{tools} is the list of tools made available to the LLM. It is an
+association list matching tool names to @code{<tool>} objects."
+  (tea-loop (state #f 0 0 '() '())
+            llm-base-uri
+            llm-api-key
+            model
+            tools))
