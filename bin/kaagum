@@ -62,7 +62,7 @@ Run kaagum AI agent.
 
   --api-base-uri=URI             base API URI of LLM provider
   --api-key-command=COMMAND      command to run to get API key
-  --model=MODEL                  LLM model name
+  --model=MODEL                  LLM model name to start new sessions with
 
   --version                      print version and exit
   --help                         print this help and exit

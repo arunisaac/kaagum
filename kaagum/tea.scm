@@ -59,12 +59,14 @@
 
 (define-record-type* (<session> session session?)
   (lambda (constructor)
-    (lambda* (cwd #:key
+    (lambda* (cwd model
+                  #:key
                   cancelling? (messages '()) (pending-tool-calls '())
                   (allowed-tools '()) (rejected-tools '()))
-      (constructor cwd cancelling? messages pending-tool-calls
+      (constructor cwd model cancelling? messages pending-tool-calls
                    allowed-tools rejected-tools)))
   (fields (cwd session-cwd lensed)
+          (model session-model lensed)
           (cancelling? session-cancelling? lensed)
           (messages session-messages lensed)
           (tool-calls session-tool-calls lensed)
@@ -89,6 +91,13 @@
   "Return a lens to focus on current working directory of session with
 @var{session-id} in state."
   (compose session-cwd
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-model session-id)
+  "Return a lens to focus on the current model of session with @var{session-id} in
+state."
+  (compose session-model
            (key-ref session-id)
            state-sessions))
 
@@ -141,6 +150,8 @@ in @var{state}."
       ;; There are no more tool calls in flight and a cancellation is not in
       ;; progress; dispatch to LLM.
       (list (llm-request session-id
+                         (focus (state-model session-id)
+                                state)
                          (map (lambda (message)
                                 ;; Strip unnecessary fields (such as reasoning
                                 ;; fields) based on role.
@@ -166,6 +177,7 @@ in @var{state}."
 
 (define-record-type* (<llm-request> llm-request llm-request?)
   (fields (session-id llm-request-session-id)
+          (model llm-request-model)
           (messages llm-request-messages)))
 
 (define-record-type* (<llm-response> llm-response llm-response?)
@@ -265,11 +277,11 @@ effects.
             (list (agent-message-chunk session-id
                                        "Error: Unknown command"))))))
 
-(define (next-state-client-request state request tools)
+(define (next-state-client-request state request model tools)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
 a list of effects.
 
-@var{tools} is the same as in @code{tea-loop}."
+@var{model} and @var{tools} are the same as in @code{tea-loop}."
   (let ((request-id (focus (key-ref "id")
                            request)))
     (cond
@@ -299,7 +311,8 @@ a list of effects.
                                 (cons session-id
                                       ;; TODO: Check if cwd is an absolute path.
                                       (session (focus (in "params" "cwd")
-                                                      request)))
+                                                      request)
+                                               model))
                                 <>)
                           ;; Increment next session ID.
                           (over state-next-session-id
@@ -683,11 +696,11 @@ state and a list of effects."
                                                          (tool-call-result-json result)))))))))))
                   (state->llm-requests session-id state)))))
 
-(define (next-state state message tools)
+(define (next-state state message model tools)
   "Given current @var{state} and a new @var{message}, return the next state and a
 list of effects.
 
-@var{tools} is the same as in @code{tea-loop}."
+@var{model} and @var{tools} are the same as in @code{tea-loop}."
   (cond
    ((acp-message? message)
     (let ((json-message (focus acp-message-json message)))
@@ -696,7 +709,7 @@ list of effects.
           (next-state-client-response state json-message)
           ;; message is a request/notification from the client.
           (let-values (((state effects)
-                        (next-state-client-request state json-message tools)))
+                        (next-state-client-request state json-message model tools)))
             (values (cond
                      ;; message is a request from the client.
                      ((focus (key-ref "id") json-message)
@@ -717,8 +730,9 @@ list of effects.
 
 @var{llm-base-uri} is the base URI of the LLM provider. @var{llm-api-key} is the
 API key to authenticate with the LLM provider. @var{model} is the name of the
-model. @var{tools} is the list of tools made available to the LLM. It is an
-association list matching tool names to @code{<tool>} objects."
+model to initialize sessions with. @var{tools} is the list of tools made
+available to the LLM. It is an association list matching tool names to
+@code{<tool>} objects."
   ;; Read a JSON-RPC message, handle it, and loop.
   (let ((line (get-line (current-input-port))))
     (unless (eof-object? line)
@@ -740,7 +754,7 @@ association list matching tool names to @code{<tool>} objects."
 as in @code{tea-loop}."
   (let-values (((state effects)
                 ;; Compute the next state and collect the effects.
-                (next-state state event tools)))
+                (next-state state event model tools)))
     ;; Do the effects.
     (fold (cut do-effect <> <> llm-base-uri llm-api-key model tools)
           state
@@ -764,7 +778,7 @@ as in @code{tea-loop}."
     (handle-event (llm-response (llm-request-session-id effect)
                                 (openai-query llm-base-uri
                                               llm-api-key
-                                              model
+                                              (llm-request-model effect)
                                               (llm-request-messages effect)
                                               (map (match-lambda
                                                      ((name . tool)
