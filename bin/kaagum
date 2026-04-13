@@ -61,8 +61,10 @@ to invoke kaagum."
 Run kaagum AI agent.
 
   --api-base-uri=URI             base API URI of LLM provider
+                                 (default: \"https://openrouter.ai\")
   --api-key-command=COMMAND      command to run to get API key
   --model=MODEL                  LLM model name to start new sessions with
+                                 (default: \"anthropic/claude-opus-4.6\")
 
   --version                      print version and exit
   --help                         print this help and exit
