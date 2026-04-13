@@ -60,6 +60,11 @@ additional @var{headers}. Return JSON response."
                     (string-append "JSON API request failed with code "
                                    (number->string (response-code response))))))))))
 
+(define* (json-get url #:key (headers '()))
+  "Send a GET request to @var{url}. Return JSON response."
+  (json-request 'GET url
+                #:headers headers))
+
 (define* (json-post url #:key (headers '()) json)
   "Send a POST request to @var{url} with @var{json} body and additional
 @var{headers}. The @samp{Content-Type} header is set to @samp{application/json}
