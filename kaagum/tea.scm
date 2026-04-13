@@ -273,11 +273,47 @@ effects.
             (list (agent-message-chunk session-id
                                        "Error: Unknown command"))))))
 
-(define (next-state-client-request state request model tools)
+(define (model->spec id model)
+  "Serialize @var{model} of @var{id} to ACP-compatible JSON spec."
+  `(("value" . ,id)
+    ;; The OpenAI API does not have the name and description fields, but the
+    ;; OpenRouter API provides them. So, we treat these as optional.
+    ,@(if (model-name model)
+          `(("name" . ,(model-name model)))
+          '())
+    ,@(if (model-description model)
+          `(("description" . ,(model-description model)))
+          '())))
+
+(define (jsonrpc-error request-id code message)
+  "Return a JSON-RPC error message for @var{request-id} with @var{code} and
+@var{message}."
+  (acp-message `(("jsonrpc" . "2.0")
+                 ("id" . ,request-id)
+                 ("error"
+                  ("code" . ,code)
+                  ("message" . ,message)))))
+
+(define (config-options current-model-id available-models)
+  "Return the @code{configOptions} JSON field with the @var{current-model-id} and
+the association list of @var{available-models}."
+  (vector `(("id" . "model")
+            ("name" . "Model")
+            ("category" . "model")
+            ("type" . "select")
+            ("currentValue" . ,current-model-id)
+            ("options" .
+             ,(list->vector (map (match-lambda
+                                   ((id . model)
+                                    (model->spec id model)))
+                                 available-models))))))
+
+(define (next-state-client-request state request models tools)
   "Given current @var{state} and a new ACP @var{request}, return the next state and
 a list of effects.
 
-@var{model} and @var{tools} are the same as in @code{run-tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}. @var{models} is the same as
+in @code{tea-loop}."
   (let ((request-id (focus (key-ref "id")
                            request)))
     (cond
@@ -300,7 +336,10 @@ a list of effects.
             (let ((session-id
                    (string-append "session-"
                                   (number->string
-                                   (focus state-next-session-id state)))))
+                                   (focus state-next-session-id state))))
+                  (model (match models
+                           (((model-id . _) . _)
+                            model-id))))
               (values (-> state
                           ;; Push new session onto list.
                           (push state-sessions
@@ -319,7 +358,8 @@ a list of effects.
                              (("jsonrpc" . "2.0")
                               ("id" . ,request-id)
                               ("result"
-                               ("sessionId" . ,session-id)))
+                               ("sessionId" . ,session-id)
+                               ("configOptions" . ,(config-options model models))))
                              ;; Advertise available commands.
                              (("jsonrpc" . "2.0")
                               ("method" . "session/update")
@@ -332,6 +372,38 @@ a list of effects.
                                                        ((name . command)
                                                         (command->spec name command)))
                                                      %commands)))))))))))
+           ("session/set_config_option"
+            (let ((session-id (focus (in "params" "sessionId")
+                                     request))
+                  (config-id (focus (in "params" "configId")
+                                    request))
+                  (model (focus (in "params" "value")
+                                request)))
+              (if (string=? config-id "model")
+                  ;; The client is setting the model.
+                  (if (focus (key-ref model)
+                             models)
+                      ;; Set model in state and respond to the client.
+                      (values (put (state-model session-id)
+                                   (focus (in "params" "value")
+                                          request)
+                                   state)
+                              (list (acp-message `(("jsonrpc" . "2.0")
+                                                   ("id" . ,request-id)
+                                                   ("result"
+                                                    ("configOptions" .
+                                                     ,(config-options model models)))))))
+                      ;; The client specified a model that is not one of the
+                      ;; available models.
+                      (values state
+                              (list (jsonrpc-error request-id
+                                                   -32602
+                                                   "Invalid model"))))
+                  ;; The client specified an unknown configId parameter.
+                  (values state
+                          (list (jsonrpc-error request-id
+                                               -32602
+                                               "Unsupported configId parameter"))))))
            ("session/prompt"
             (let ((session-id (focus (in "params" "sessionId")
                                      request))
@@ -692,11 +764,12 @@ state and a list of effects."
                                                          (tool-call-result-json result)))))))))))
                   (state->llm-requests session-id state)))))
 
-(define (next-state state message model tools)
+(define (next-state state message models tools)
   "Given current @var{state} and a new @var{message}, return the next state and a
 list of effects.
 
-@var{model} and @var{tools} are the same as in @code{run-tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}. @var{models} is the same as
+in @code{tea-loop}."
   (cond
    ((acp-message? message)
     (let ((json-message (focus acp-message-json message)))
@@ -705,7 +778,7 @@ list of effects.
           (next-state-client-response state json-message)
           ;; message is a request/notification from the client.
           (let-values (((state effects)
-                        (next-state-client-request state json-message model tools)))
+                        (next-state-client-request state json-message models tools)))
             (values (cond
                      ;; message is a request from the client.
                      ((focus (key-ref "id") json-message)
@@ -721,11 +794,12 @@ list of effects.
    ((tool-call-result? message)
     (next-state-tool-call-result state message))))
 
-(define (tea-loop state llm-base-uri llm-api-key model tools)
+(define (tea-loop state llm-base-uri llm-api-key models tools)
   "Run a @acronym{TEA, The Elm Architecture} loop starting with @var{state}.
 
-@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
-as in @code{run-tea-loop}."
+@var{llm-base-uri}, @var{llm-api-key} and @var{tools} are the same as in
+@code{run-tea-loop}. @var{models} is an association list mapping model IDs to
+@code{<model>} objects, the first element of which is the default model."
   ;; Read a JSON-RPC message, handle it, and loop.
   (let ((line (get-line (current-input-port))))
     (unless (eof-object? line)
@@ -733,31 +807,31 @@ as in @code{run-tea-loop}."
                               state
                               llm-base-uri
                               llm-api-key
-                              model
+                              models
                               tools)
                 llm-base-uri
                 llm-api-key
-                model
+                models
                 tools))))
 
-(define (handle-event event state llm-base-uri llm-api-key model tools)
+(define (handle-event event state llm-base-uri llm-api-key models tools)
   "Handle @var{event} with @var{state} and return a new state.
 
-@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
-as in @code{run-tea-loop}."
+@var{llm-base-uri}, @var{llm-api-key} and @var{tools} are the same as in
+@code{run-tea-loop}. @var{models} is the same as in @code{tea-loop}."
   (let-values (((state effects)
                 ;; Compute the next state and collect the effects.
-                (next-state state event model tools)))
+                (next-state state event models tools)))
     ;; Do the effects.
-    (fold (cut do-effect <> <> llm-base-uri llm-api-key model tools)
+    (fold (cut do-effect <> <> llm-base-uri llm-api-key models tools)
           state
           effects)))
 
-(define (do-effect effect state llm-base-uri llm-api-key model tools)
+(define (do-effect effect state llm-base-uri llm-api-key models tools)
   "Do @var{effect} with @var{state} and return a new state.
 
-@var{llm-base-uri}, @var{llm-api-key}, @var{model} and @var{tools} are the same
-as in @code{run-tea-loop}."
+@var{llm-base-uri}, @var{llm-api-key} and @var{tools} are the same as in
+@code{run-tea-loop}. @var{models} is the same as in @code{tea-loop}."
   (cond
    ;; Send message to client, and return the state unchanged.
    ((acp-message? effect)
@@ -780,7 +854,7 @@ as in @code{run-tea-loop}."
                   state
                   llm-base-uri
                   llm-api-key
-                  model
+                  models
                   tools))
    ;; Evaluate tool, handle the result, and return the new state.
    ((tool-call? effect)
@@ -788,7 +862,7 @@ as in @code{run-tea-loop}."
                   state
                   llm-base-uri
                   llm-api-key
-                  model
+                  models
                   tools))))
 
 (define (run-tea-loop llm-base-uri llm-api-key model tools)
@@ -797,8 +871,10 @@ URI of the LLM provider. @var{llm-api-key} is the API key to authenticate with
 the LLM provider. @var{model} is the name of the model to initialize sessions
 with. @var{tools} is the list of tools made available to the LLM. It is an
 association list matching tool names to @code{<tool>} objects."
-  (tea-loop (state #f 0 0 '() '())
-            llm-base-uri
-            llm-api-key
-            model
-            tools))
+  (let ((models (openai-models llm-base-uri llm-api-key)))
+    (tea-loop (state #f 0 0 '() '())
+              llm-base-uri
+              llm-api-key
+              (cons (assoc model models)
+                    (alist-delete model models))
+              tools)))
