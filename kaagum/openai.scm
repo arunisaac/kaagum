@@ -32,16 +32,15 @@
 (define (uri-join base uri)
   (string-append base uri))
 
-(define* (json-post url #:key headers json)
-  "Send a POST request to @var{url} with @var{json} body and additional
-@var{headers}. The @samp{Content-Type} header is set to @samp{application/json}
-and need not be specified in @var{headers}. Return JSON response."
+(define* (json-request method url #:key (headers '()) body)
+  "Send a HTTP @var{method} request to @var{url} with @var{body} and
+additional @var{headers}. Return JSON response."
   (let-values (((response body)
-                (http-post url
-                           #:headers `((content-type application/json)
-                                       ,@headers)
-                           #:body (scm->json-string json)
-                           #:streaming? #t)))
+                (http-request url
+                              #:method method
+                              #:headers headers
+                              #:body body
+                              #:streaming? #t)))
     ;; Guile does not consider application/json responses as textual, and does
     ;; not automatically set the port encoding to UTF-8.
     (set-port-encoding! body "UTF-8")
@@ -60,6 +59,15 @@ and need not be specified in @var{headers}. Return JSON response."
                    (make-message-condition
                     (string-append "JSON API request failed with code "
                                    (number->string (response-code response))))))))))
+
+(define* (json-post url #:key (headers '()) json)
+  "Send a POST request to @var{url} with @var{json} body and additional
+@var{headers}. The @samp{Content-Type} header is set to @samp{application/json}
+and need not be specified in @var{headers}. Return JSON response."
+  (json-request 'POST url
+                #:headers `((content-type application/json)
+                            ,@headers)
+                #:body (scm->json-string json)))
 
 ;; Declare the Authorization header as opaque so that Guile doesn't try to mess
 ;; with it.
