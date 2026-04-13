@@ -61,7 +61,7 @@ to invoke kaagum."
 Run kaagum AI agent.
 
   --api-base-uri=URI             base API URI of LLM provider
-                                 (default: \"https://openrouter.ai\")
+                                 (default: \"https://openrouter.ai/api\")
   --api-key-command=COMMAND      command to run to get API key
   --model=MODEL                  LLM model name to start new sessions with
                                  (default: \"anthropic/claude-opus-4.6\")
@@ -93,7 +93,7 @@ Run kaagum AI agent.
                             invalid-option
                             invalid-argument
                             '((model . "anthropic/claude-opus-4.6")
-                              (api-base-uri . "https://openrouter.ai")))))
+                              (api-base-uri . "https://openrouter.ai/api")))))
        (when (assq-ref args 'help)
          (print-usage program)
          (exit #t))

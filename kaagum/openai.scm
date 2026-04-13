@@ -71,7 +71,7 @@ and need not be specified in @var{headers}. Return JSON response."
 is the API key for authentication. @var{model} is a supported LLM model.
 @var{messages} and @var{tools} are respectively lists of JSON messages and tools
 compatible with the OpenAI API specification."
-  (json-post (uri-join base-uri "/api/v1/chat/completions")
+  (json-post (uri-join base-uri "/v1/chat/completions")
              #:headers `((authorization
                           . ,(string-append "Bearer " api-key)))
              #:json `(("model" . ,model)
