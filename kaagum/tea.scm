@@ -533,21 +533,6 @@ and a list of effects."
                               (assertion-violation selection
                                                    "Invalid selection")))
                             <>)
-                       ;; Update tool status.
-                       (put (compose tool-call-status
-                                     (state-tool-call (tool-call-id tool-call)
-                                                      session-id))
-                            (cond
-                             ((eq? selection 'cancel) 'cancelled)
-                             ((memq selection '(allow-once allow-always))
-                              'approved)
-                             ((memq selection '(reject-once reject-always))
-                              'rejected)
-                             ;; This branch should be unreachable.
-                             (else
-                              (assertion-violation selection
-                                                   "Invalid selection")))
-                            <>)
                        ;; If the tool call was cancelled, set the cancelling flag
                        ;; to indicate that a cancellation is in progress.
                        (put (state-session-cancelling? session-id)
