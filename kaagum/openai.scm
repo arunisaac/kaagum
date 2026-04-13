@@ -24,8 +24,15 @@
   #:use-module (web http)
   #:use-module (web response)
   #:use-module (json)
+  #:use-module (lens)
+  #:use-module (kaagum records)
   #:export (get-api-key
-            openai-query))
+            openai-query
+            openai-models))
+
+(define-public-record-type* (<model> model model?)
+  (fields (name model-name)
+          (description model-description)))
 
 ;; TODO: URIs must not be operated on using string operations. Replace with a
 ;; more principled implementation involving (web uri).
@@ -90,3 +97,16 @@ compatible with the OpenAI API specification."
              #:json `(("model" . ,model)
                       ("messages" . ,(list->vector messages))
                       ("tools" . ,(list->vector tools)))))
+
+(define (openai-models base-uri api-key)
+  "Return available models. The return value is an association list mapping model
+IDs to @code{<model>} objects. @var{base-uri} and @var{api-key} are the same as
+in @code{openai-query}."
+  (map (lambda (tree)
+         (cons (focus (key-ref "id") tree)
+               (model (focus (key-ref "name") tree)
+                      (focus (key-ref "description") tree))))
+       (vector->list (focus (key-ref "data")
+                            (json-get (uri-join base-uri "/v1/models")
+                                      #:headers `((authorization
+                                                   . ,(string-append "Bearer " api-key))))))))
