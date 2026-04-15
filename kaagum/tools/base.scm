@@ -127,8 +127,11 @@ Line numbers start from 1. Output is the raw file contents without line numbers.
                           get-line
                           <>)))))
         #:title (lambda* (#:key path (start-line 1) end-line)
-                  (format #f "read ~a:~a-~a"
-                          path start-line (or end-line "")))
+                  (if (and (= start-line 1)
+                           (not end-line))
+                      (format #f "read ~a" path)
+                      (format #f "read ~a:~a-~a"
+                              path start-line (or end-line ""))))
         #:kind "read"))
 
 (define %list
