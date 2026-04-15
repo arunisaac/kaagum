@@ -4,6 +4,17 @@ kaagum runs tool calls securely using containers and capability-based access. To
 
 Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice.
 
+# Brainstorming future direction
+
+- Session saving and restoring
+- Sharing more than one directory with the tool call container
+- Streaming LLM responses to the clients
+- Streaming tool call output to the LLM?
+- Monitoring token usage
+- Providing custom tools written in Guile
+- Fine-grained enabling/disabling of tools
+- Tool-specific container/network access configuration
+
 # Author's note on AI use
 
 This program is not an endorsement of AI or its use. Please think for yourself, and use AI wisely (if at all). The societal, environmental and ethical consequences of AI are real, and I struggle with them myself. I hope we, as the free software community, can come to some reasonable consensus on how we are going to deal with AI. Meanwhile, I have been [nerd sniped](https://xkcd.com/356/) into experimenting with AI, and this is my effort to disentangle myself from popular AI agents that are recklessly biased towards convenience and thoughtless about dependencies (think npm crap).
