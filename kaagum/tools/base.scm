@@ -55,21 +55,21 @@ valid regular expression."
              (exit #f)))
     (make-regexp pattern)))
 
-(define (files-recursively directory pattern)
-  "Return a list of all files recursively down @var{directory} whose basename
-matches regular expression @var{pattern}. Hidden directories are not traversed."
+(define (files-recursively path pattern)
+  "Return a list of all files recursively down @var{path} whose basename matches
+regular expression @var{pattern}. Hidden directories are not traversed.
+@var{path} may be a directory or any other file type. If @var{path} is not a
+directory, return a singleton list with @var{path} alone."
   (cond
-   ((not (file-exists? directory))
+   ((not (file-exists? path))
     (format (current-output-port)
-            "Error: Directory ~a does not exist~%"
-            directory)
+            "Error: Path ~a does not exist~%"
+            path)
     (exit #f))
-   ((not (eq? (stat:type (stat directory))
+   ;; Return regular files (and other non-directory files) in a singleton list.
+   ((not (eq? (stat:type (stat path))
               'directory))
-    (format (current-output-port)
-            "Error: ~a is not a directory~%"
-            directory)
-    (exit #f))
+    (list path))
    (else
     (let ((pattern-rx (make-regexp* pattern)))
       (file-system-fold (lambda (path stat result)
@@ -91,7 +91,7 @@ matches regular expression @var{pattern}. Hidden directories are not traversed."
                                   (strerror errno))
                           result)
                         (list)
-                        (canonicalize-path directory))))))
+                        (canonicalize-path path))))))
 
 (define %read
   (tool #:description "Read whole text file, or optionally a subset of its lines.
