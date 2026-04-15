@@ -60,38 +60,32 @@ valid regular expression."
 regular expression @var{pattern}. Hidden directories are not traversed.
 @var{path} may be a directory or any other file type. If @var{path} is not a
 directory, return a singleton list with @var{path} alone."
-  (cond
-   ((not (file-exists? path))
-    (format (current-output-port)
-            "Error: Path ~a does not exist~%"
-            path)
-    (exit #f))
-   ;; Return regular files (and other non-directory files) in a singleton list.
-   ((not (eq? (stat:type (stat path))
-              'directory))
-    (list path))
-   (else
-    (let ((pattern-rx (make-regexp* pattern)))
-      (file-system-fold (lambda (path stat result)
-                          (not (string-prefix? "." (basename path))))
-                        (lambda (path stat result)
-                          (if (regexp-exec pattern-rx (basename path))
-                              (cons path result)
-                              result))
-                        (lambda (path stat result)
-                          result)
-                        (lambda (path stat result)
-                          result)
-                        (lambda (path stat result)
-                          result)
-                        (lambda (path stat errno result)
-                          (format (current-output-port)
-                                  "Error: ~a: ~a~%"
-                                  path
-                                  (strerror errno))
-                          result)
-                        (list)
-                        (canonicalize-path path))))))
+  (if (eq? (stat:type (stat path))
+           'directory)
+      ;; path is a directory; traverse it recursively and return all files.
+      (let ((pattern-rx (make-regexp* pattern)))
+        (file-system-fold (lambda (path stat result)
+                            (not (string-prefix? "." (basename path))))
+                          (lambda (path stat result)
+                            (if (regexp-exec pattern-rx (basename path))
+                                (cons path result)
+                                result))
+                          (lambda (path stat result)
+                            result)
+                          (lambda (path stat result)
+                            result)
+                          (lambda (path stat result)
+                            result)
+                          (lambda (path stat errno result)
+                            (format (current-output-port)
+                                    "Error: ~a: ~a~%"
+                                    path
+                                    (strerror errno))
+                            result)
+                          (list)
+                          (canonicalize-path path)))
+      ;; path is a regular file; return it in a singleton list.
+      (list path)))
 
 (define %read
   (tool #:description "Read whole text file, or optionally a subset of its lines.
@@ -153,6 +147,11 @@ file against. Default matches all files.
 
 For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
         #:proc (lambda* (#:key root (pattern "."))
+                 (unless (file-exists? root)
+                   (format (current-output-port)
+                           "Error: root ~a does not exist~%"
+                           root)
+                   (exit #f))
                  (for-each (lambda (path)
                              (let ((st (stat path)))
                                (format (current-output-port)
@@ -188,6 +187,11 @@ file against. Default matches all files.
 
 For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
         #:proc (lambda* (#:key pattern files-root (files-pattern "."))
+                 (unless (file-exists? files-root)
+                   (format (current-output-port)
+                           "Error: files-root ~a does not exist~%"
+                           files-root)
+                   (exit #f))
                  (let* ((pattern-rx (make-regexp* pattern))
                         (line-matcher (match-lambda
                                         ((_ . line)
