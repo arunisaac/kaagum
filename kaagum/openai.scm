@@ -95,6 +95,17 @@ compatible with the OpenAI API specification."
              #:headers `((authorization
                           . ,(string-append "Bearer " api-key)))
              #:json `(("model" . ,model)
+                      ;; Some providers (like Anthropic) require you to
+                      ;; explicitly enable automatic prompt caching. See
+                      ;; https://openrouter.ai/docs/guides/best-practices/prompt-caching
+                      ("cache_control"
+                       ("type" . "ephemeral")
+                       ;; Anthropic offers cheaper cache writes for a ttl of 5
+                       ;; minutes. But, it doesn't make a difference for an
+                       ;; extended session and is not worth it for our use case.
+                       ;; If we change our mind about this, we can make this a
+                       ;; configurable parameter.
+                       ("ttl" . "1h"))
                       ("messages" . ,(list->vector messages))
                       ("tools" . ,(list->vector tools)))))
 
