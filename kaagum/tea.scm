@@ -418,19 +418,17 @@ in @code{tea-loop}."
                 => (lambda (mtch)
                      (let ((command-name (match:substring mtch 1))
                            (argument (string-trim (match:substring mtch 2))))
-                       (let-values (((state effects)
+                       (let-values (((state slash-command-effects)
                                      (next-state-slash-command
                                       state session-id tools command-name argument)))
-                         (values state
-                                 ;; End prompt turn immediately. This means
-                                 ;; slash commands cannot send LLM requests or
-                                 ;; initiate other exchanges.
-                                 (append effects
-                                         (list (acp-message
-                                                `(("jsonrpc" . "2.0")
-                                                  ("id" . ,request-id)
-                                                  ("result"
-                                                   ("stopReason" . "end_turn")))))))))))
+                         ;; End prompt turn immediately. This means slash
+                         ;; commands cannot send LLM requests or initiate other
+                         ;; exchanges.
+                         (let-values (((state end-turn-effects)
+                                       (next-state-end-turn state session-id)))
+                           (values state
+                                   (append slash-command-effects
+                                           end-turn-effects)))))))
                ;; regular prompt
                (else
                 (let ((state (push (state-messages session-id)
@@ -662,6 +660,16 @@ and a list of effects.
                                          ("status" . "pending"))))))
                       effects))))))
 
+(define (next-state-end-turn state session-id)
+  "Given current @var{state}, return the next state and a list of effects for
+ending the turn of session with @var{session-id}."
+  (values state
+          (list (acp-message `(("jsonrpc" . "2.0")
+                               ("id" . ,(focus state-client-request-id
+                                               state))
+                               ("result"
+                                ("stopReason" . "end_turn")))))))
+
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
 and a list of effects.
@@ -689,29 +697,26 @@ and a list of effects.
                                    llm-reply
                                    <>))
                          '())))
-      (values state
-              (cons (agent-message-chunk session-id
-                                         ;; Send LLM's text response.
-                                         (focus (key-ref "content")
-                                                llm-reply))
-                    (append tool-call-effects
-                            ;; End prompt turn if there are no further tool
-                            ;; calls and a cancellation is not in progress.
-                            (if (and (null? tool-calls-json)
-                                     (not (focus (state-session-cancelling? session-id)
-                                                 state)))
-                                (list (acp-message `(("jsonrpc" . "2.0")
-                                                     ("id" . ,(focus state-client-request-id
-                                                                     state))
-                                                     ("result"
-                                                      ("stopReason" . "end_turn")))))
-                                '())
-                            ;; All tool calls may have been invalid. Maybe
-                            ;; dispatch LLM requests, but only if there were any
-                            ;; in the first place.
-                            (if (not (null? tool-calls-json))
-                                (state->llm-requests session-id state)
-                                '())))))))
+      (let ((effects (cons (agent-message-chunk session-id
+                                                ;; Send LLM's text response.
+                                                (focus (key-ref "content")
+                                                       llm-reply))
+                           tool-call-effects)))
+        (if (null? tool-calls-json)
+            ;; There are no further tool calls,
+            (if (not (focus (state-session-cancelling? session-id)
+                            state))
+                ;; … and a cancellation is not in progress; end turn.
+                (let-values (((state end-turn-effects)
+                              (next-state-end-turn state session-id)))
+                  (values state
+                          (append effects end-turn-effects)))
+                ;; Else, return what we have so far.
+                (values state effects))
+            ;; Maybe dispatch LLM requests.
+            (values state
+                    (append effects
+                            (state->llm-requests session-id state))))))))
 
 (define (next-state-tool-call-result state result)
   "Given current @var{state} and a new tool call @var{result}, return the next
