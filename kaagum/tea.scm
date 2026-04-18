@@ -314,8 +314,8 @@ a list of effects.
 
 @var{tools} is the same as in @code{run-tea-loop}. @var{models} is the same as
 in @code{tea-loop}."
-  (let ((request-id (focus (key-ref "id")
-                           request)))
+  (let ((request-id (focus state-client-request-id
+                           state)))
     (cond
      ;; There is a pending request from the client; process it.
      ((focus (key-ref "method") request)
@@ -452,8 +452,7 @@ in @code{tea-loop}."
                                '()
                                <>))
                       (list (acp-message `(("jsonrpc" . "2.0")
-                                           ("id" . ,(focus state-client-request-id
-                                                           state))
+                                           ("id" . ,request-id)
                                            ("result"
                                             ("stopReason" . "cancelled")))))))))))))
 
