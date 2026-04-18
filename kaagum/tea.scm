@@ -60,12 +60,26 @@
   (lambda (constructor)
     (lambda* (cwd model
                   #:key
+                  (input-tokens 0) (output-tokens 0) (thought-tokens 0)
+                  (cache-read-tokens 0) (cache-write-tokens 0)
                   cancelling? (messages '()) (pending-tool-calls '())
                   (allowed-tools '()) (rejected-tools '()))
-      (constructor cwd model cancelling? messages pending-tool-calls
+      (constructor cwd model input-tokens output-tokens thought-tokens
+                   cache-read-tokens cache-write-tokens
+                   cancelling? messages pending-tool-calls
                    allowed-tools rejected-tools)))
   (fields (cwd session-cwd lensed)
           (model session-model lensed)
+          ;; Input tokens used in current turn
+          (input-tokens session-input-tokens lensed)
+          ;; Output tokens used in current turn
+          (output-tokens session-output-tokens lensed)
+          ;; Thought/reasoning tokens used in current turn
+          (thought-tokens session-thought-tokens lensed)
+          ;; Cache read tokens used in current turn
+          (cache-read-tokens session-cache-read-tokens lensed)
+          ;; Cache write tokens used in current turn
+          (cache-write-tokens session-cache-write-tokens lensed)
           (cancelling? session-cancelling? lensed)
           (messages session-messages lensed)
           (tool-calls session-tool-calls lensed)
@@ -130,6 +144,41 @@ state."
 @var{session-id} in state."
   (compose (key-ref tool-call-id)
            (state-tool-calls session-id)))
+
+(define (state-session-input-tokens session-id)
+  "Return a lens to focus on the input tokens of session with @var{session-id} in
+state."
+  (compose session-input-tokens
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-session-output-tokens session-id)
+  "Return a lens to focus on the output tokens of session with @var{session-id} in
+state."
+  (compose session-output-tokens
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-session-thought-tokens session-id)
+  "Return a lens to focus on the thought tokens of session with @var{session-id} in
+state."
+  (compose session-thought-tokens
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-session-cache-read-tokens session-id)
+  "Return a lens to focus on the cache read tokens of session with @var{session-id}
+in state."
+  (compose session-cache-read-tokens
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-session-cache-write-tokens session-id)
+  "Return a lens to focus on the cache write tokens of session with
+@var{session-id} in state."
+  (compose session-cache-write-tokens
+           (key-ref session-id)
+           state-sessions))
 
 (define (state-session-cancelling? session-id)
   "Return a lens to focus on the @code{cancelling?} flag of session with
@@ -664,12 +713,38 @@ and a list of effects.
 (define (next-state-end-turn state session-id)
   "Given current @var{state}, return the next state and a list of effects for
 ending the turn of session with @var{session-id}."
-  (values state
-          (list (acp-message `(("jsonrpc" . "2.0")
-                               ("id" . ,(focus state-client-request-id
-                                               state))
-                               ("result"
-                                ("stopReason" . "end_turn")))))))
+  (let ((input-tokens (focus (state-session-input-tokens session-id)
+                             state))
+        (output-tokens (focus (state-session-output-tokens session-id)
+                              state))
+        (thought-tokens (focus (state-session-thought-tokens session-id)
+                               state))
+        (cache-read-tokens (focus (state-session-cache-read-tokens session-id)
+                                  state))
+        (cache-write-tokens (focus (state-session-cache-write-tokens session-id)
+                                   state)))
+    (values (-> state
+                ;; Reset per-turn token counters.
+                (put (state-session-input-tokens session-id)
+                     0
+                     <>)
+                (put (state-session-output-tokens session-id)
+                     0
+                     <>)
+                (put (state-session-thought-tokens session-id)
+                     0
+                     <>)
+                (put (state-session-cache-read-tokens session-id)
+                     0
+                     <>)
+                (put (state-session-cache-write-tokens session-id)
+                     0
+                     <>))
+            (list (acp-message `(("jsonrpc" . "2.0")
+                                 ("id" . ,(focus state-client-request-id
+                                                 state))
+                                 ("result"
+                                  ("stopReason" . "end_turn"))))))))
 
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
@@ -693,6 +768,34 @@ and a list of effects.
                                      (append new-effects effects))))
                          tool-calls-json
                          (-> state
+                             (add (state-session-input-tokens session-id)
+                                  (focus (in-json "usage" "prompt_tokens")
+                                         (llm-response-json response))
+                                  <>)
+                             (add (state-session-output-tokens session-id)
+                                  (focus (in-json "usage" "completion_tokens")
+                                         (llm-response-json response))
+                                  <>)
+                             (add (state-session-thought-tokens session-id)
+                                  (or (focus (in-json "usage"
+                                                      "completion_tokens_details"
+                                                      "reasoning_tokens")
+                                             (llm-response-json response))
+                                      0)
+                                  <>)
+                             (add (state-session-cache-read-tokens session-id)
+                                  (focus (in-json "usage"
+                                                  "prompt_tokens_details"
+                                                  "cached_tokens")
+                                         (llm-response-json response))
+                                  <>)
+                             (add (state-session-cache-write-tokens session-id)
+                                  (or (focus (in-json "usage"
+                                                      "prompt_tokens_details"
+                                                      "cache_write_tokens")
+                                             (llm-response-json response))
+                                      0)
+                                  <>)
                              ;; Push LLM response onto messages.
                              (push (state-messages session-id)
                                    llm-reply
