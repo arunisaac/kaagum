@@ -32,7 +32,8 @@
 
 (define-public-record-type* (<model> model model?)
   (fields (name model-name)
-          (description model-description)))
+          (description model-description)
+          (context-length model-context-length lensed)))
 
 ;; TODO: URIs must not be operated on using string operations. Replace with a
 ;; more principled implementation involving (web uri).
@@ -116,7 +117,8 @@ in @code{openai-query}."
   (map (lambda (tree)
          (cons (focus (key-ref "id") tree)
                (model (focus (key-ref "name") tree)
-                      (focus (key-ref "description") tree))))
+                      (focus (key-ref "description") tree)
+                      (focus (key-ref "context_length") tree))))
        (vector->list (focus (key-ref "data")
                             (json-get (uri-join base-uri "/v1/models")
                                       #:headers `((authorization
