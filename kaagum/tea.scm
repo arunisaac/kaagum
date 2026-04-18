@@ -770,7 +770,17 @@ ending the turn of session with @var{session-id}."
                                            ("thoughtTokens" . ,thought-tokens)
                                            ("cachedReadTokens" . ,cache-read-tokens)
                                            ("cachedWriteTokens" . ,cache-write-tokens)))
-                                        '()))))))))
+                                        '()))))
+                  (acp-message `(("jsonrpc" . "2.0")
+                                 ("method" . "session/update")
+                                 ("params"
+                                  ("sessionId" . ,session-id)
+                                  ("update"
+                                   ("sessionUpdate" . "usage_update")
+                                   ("cost"
+                                    ("amount" . ,(focus (state-session-cost session-id)
+                                                        state))
+                                    ("currency" . "USD"))))))))))
 
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
