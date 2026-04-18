@@ -75,13 +75,15 @@
           (rejected-tools session-rejected-tools lensed)))
 
 (define-record-type* (<state> state state?)
-  (fields (client-request-id state-client-request-id lensed)
-          (agent-request-id state-agent-request-id lensed)
-          (next-session-id state-next-session-id lensed)
-          ;; Association list mapping agent request IDs to tool calls for which
-          ;; permission is sought
-          (requests-alist state-requests-alist lensed)
-          (sessions state-sessions lensed)))
+  (fields
+   ;; ID of the client request being served
+   (client-request-id state-client-request-id lensed)
+   (agent-request-id state-agent-request-id lensed)
+   (next-session-id state-next-session-id lensed)
+   ;; Association list mapping agent request IDs to tool calls for which
+   ;; permission is sought
+   (requests-alist state-requests-alist lensed)
+   (sessions state-sessions lensed)))
 
 (define (state-cwd session-id)
   "Return a lens to focus on current working directory of session with
