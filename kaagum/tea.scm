@@ -61,11 +61,11 @@
     (lambda* (cwd model
                   #:key
                   (input-tokens 0) (output-tokens 0) (thought-tokens 0)
-                  (cache-read-tokens 0) (cache-write-tokens 0)
+                  (cache-read-tokens 0) (cache-write-tokens 0) (cost 0)
                   cancelling? (messages '()) (pending-tool-calls '())
                   (allowed-tools '()) (rejected-tools '()))
       (constructor cwd model input-tokens output-tokens thought-tokens
-                   cache-read-tokens cache-write-tokens
+                   cache-read-tokens cache-write-tokens cost
                    cancelling? messages pending-tool-calls
                    allowed-tools rejected-tools)))
   (fields (cwd session-cwd lensed)
@@ -80,6 +80,8 @@
           (cache-read-tokens session-cache-read-tokens lensed)
           ;; Cache write tokens used in current turn
           (cache-write-tokens session-cache-write-tokens lensed)
+          ;; Cost of session
+          (cost session-cost lensed)
           (cancelling? session-cancelling? lensed)
           (messages session-messages lensed)
           (tool-calls session-tool-calls lensed)
@@ -177,6 +179,13 @@ in state."
   "Return a lens to focus on the cache write tokens of session with
 @var{session-id} in state."
   (compose session-cache-write-tokens
+           (key-ref session-id)
+           state-sessions))
+
+(define (state-session-cost session-id)
+  "Return a lens to focus on the total cost of session with @var{session-id} in
+state."
+  (compose session-cost
            (key-ref session-id)
            state-sessions))
 
@@ -810,6 +819,11 @@ and a list of effects.
                                   (or (focus (in-json "usage"
                                                       "prompt_tokens_details"
                                                       "cache_write_tokens")
+                                             (llm-response-json response))
+                                      0)
+                                  <>)
+                             (add (state-session-cost session-id)
+                                  (or (focus (in-json "usage" "cost")
                                              (llm-response-json response))
                                       0)
                                   <>)
