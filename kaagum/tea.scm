@@ -744,7 +744,24 @@ ending the turn of session with @var{session-id}."
                                  ("id" . ,(focus state-client-request-id
                                                  state))
                                  ("result"
-                                  ("stopReason" . "end_turn"))))))))
+                                  ("stopReason" . "end_turn")
+                                  ;; Report usage if it is non-zero. Usage can
+                                  ;; be zero if turn was for a slash command.
+                                  ,@(if (any (negate zero?)
+                                             (list input-tokens
+                                                   output-tokens
+                                                   thought-tokens
+                                                   cache-read-tokens
+                                                   cache-write-tokens))
+                                        `(("usage"
+                                           ("totalTokens" . ,(+ input-tokens
+                                                                output-tokens))
+                                           ("inputTokens" . ,input-tokens)
+                                           ("outputTokens" . ,output-tokens)
+                                           ("thoughtTokens" . ,thought-tokens)
+                                           ("cachedReadTokens" . ,cache-read-tokens)
+                                           ("cachedWriteTokens" . ,cache-write-tokens)))
+                                        '()))))))))
 
 (define (next-state-llm-response state response tools)
   "Given current @var{state} and a new LLM @var{response}, return the next state
