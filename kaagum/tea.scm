@@ -767,18 +767,19 @@ in @code{tea-loop}."
           ;; message is a response from the client.
           (next-state-client-response state json-message)
           ;; message is a request/notification from the client.
-          (let-values (((state effects)
-                        (next-state-client-request state json-message models tools)))
-            (values (cond
-                     ;; message is a request from the client.
-                     ((focus (key-ref "id") json-message)
-                      => (cut put
-                              state-client-request-id
-                              <>
-                              state))
-                     ;; message is a notification from the client.
-                     (else state))
-                    effects)))))
+          (next-state-client-request (cond
+                                      ;; message is a request from the client.
+                                      ((focus (key-ref "id") json-message)
+                                       => (cut put
+                                               state-client-request-id
+                                               <>
+                                               state))
+                                      ;; message is a notification from the
+                                      ;; client.
+                                      (else state))
+                                     json-message
+                                     models
+                                     tools))))
    ((llm-response? message)
     (next-state-llm-response state message tools))
    ((tool-call-result? message)
