@@ -24,6 +24,7 @@
   #:export (vector-nth
             in-json
             push
+            add
             prepend-over
             alist-delete-over))
 
@@ -50,6 +51,10 @@ possible to traverse JSON trees."
   "Cons @var{x} onto the part of @var{object} that @var{lens} focuses
 on."
   (over lens (cut cons x <>) object))
+
+(define (add lens x object)
+  "Add @var{x} onto the part of @var{object} that @var{lens} focuses on."
+  (over lens (cut + x <>) object))
 
 (define (prepend-over lens lst object)
   "Prepend @var{lst} to the part of @var{object} that @var{lens} focuses
