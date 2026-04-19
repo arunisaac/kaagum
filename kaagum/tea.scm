@@ -485,7 +485,7 @@ in @code{tea-loop}."
                          ;; commands cannot send LLM requests or initiate other
                          ;; exchanges.
                          (let-values (((state end-turn-effects)
-                                       (next-state-end-turn state session-id)))
+                                       (next-state-end-turn state session-id models)))
                            (values state
                                    (append slash-command-effects
                                            end-turn-effects)))))))
@@ -719,9 +719,11 @@ and a list of effects.
                                          ("status" . "pending"))))))
                       effects))))))
 
-(define (next-state-end-turn state session-id)
+(define (next-state-end-turn state session-id models)
   "Given current @var{state}, return the next state and a list of effects for
-ending the turn of session with @var{session-id}."
+ending the turn of session with @var{session-id}.
+
+@var{models} is the same as in @code{tea-loop}."
   (let ((input-tokens (focus (state-session-input-tokens session-id)
                              state))
         (output-tokens (focus (state-session-output-tokens session-id)
@@ -731,7 +733,9 @@ ending the turn of session with @var{session-id}."
         (cache-read-tokens (focus (state-session-cache-read-tokens session-id)
                                   state))
         (cache-write-tokens (focus (state-session-cache-write-tokens session-id)
-                                   state)))
+                                   state))
+        (model-lens (key-ref (focus (state-model session-id)
+                                    state))))
     (values (-> state
                 ;; Reset per-turn token counters.
                 (put (state-session-input-tokens session-id)
@@ -777,16 +781,22 @@ ending the turn of session with @var{session-id}."
                                   ("sessionId" . ,session-id)
                                   ("update"
                                    ("sessionUpdate" . "usage_update")
+                                   ("used" . ,(+ input-tokens
+                                                 output-tokens))
+                                   ("size" . ,(focus (compose model-context-length
+                                                              model-lens)
+                                                     models))
                                    ("cost"
                                     ("amount" . ,(focus (state-session-cost session-id)
                                                         state))
                                     ("currency" . "USD"))))))))))
 
-(define (next-state-llm-response state response tools)
+(define (next-state-llm-response state response tools models)
   "Given current @var{state} and a new LLM @var{response}, return the next state
 and a list of effects.
 
-@var{tools} is the same as in @code{run-tea-loop}."
+@var{tools} is the same as in @code{run-tea-loop}. @var{models} is the same as
+in @code{tea-loop}."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (focus (in-json "choices" 0 "message")
                            (llm-response-json response)))
@@ -853,7 +863,7 @@ and a list of effects.
                             state))
                 ;; … and a cancellation is not in progress; end turn.
                 (let-values (((state end-turn-effects)
-                              (next-state-end-turn state session-id)))
+                              (next-state-end-turn state session-id models)))
                   (values state
                           (append effects end-turn-effects)))
                 ;; Else, return what we have so far.
@@ -926,7 +936,7 @@ in @code{tea-loop}."
                                      models
                                      tools))))
    ((llm-response? message)
-    (next-state-llm-response state message tools))
+    (next-state-llm-response state message tools models))
    ((tool-call-result? message)
     (next-state-tool-call-result state message))))
 
