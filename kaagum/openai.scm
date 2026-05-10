@@ -58,12 +58,14 @@ additional @var{headers}. Return JSON response."
       ((4)
        (raise-exception
         (condition (make-violation)
+                   (make-irritants-condition (list method url headers body))
                    (make-message-condition
                     (string-append "JSON API request failed with client error code "
                                    (number->string (response-code response)))))))
       (else
        (raise-exception
         (condition (make-error)
+                   (make-irritants-condition (list method url headers body))
                    (make-message-condition
                     (string-append "JSON API request failed with code "
                                    (number->string (response-code response))))))))))
