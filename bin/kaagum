@@ -83,7 +83,7 @@ Run kaagum AI agent.
   ;; 1. api-key-command is a string, not a list of string arguments
   ;; 2. api-key-command may contain pipes
   (call-with-input-pipe `("sh" "-c" ,api-key-command)
-    get-string-all))
+    (compose string-trim-both get-string-all)))
 
 (define main
   (match-lambda
