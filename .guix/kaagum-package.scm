@@ -20,7 +20,7 @@
   #:use-module ((gnu packages emacs-xyz)
                 #:select (emacs-agent-shell))
   #:use-module ((gnu packages guile)
-                #:select (guile-3.0 guile-json-4))
+                #:select (guile-next guile-json-4))
   #:use-module ((gnu packages guile-xyz)
                 #:select (guile-lens guile-run64))
   #:use-module ((gnu packages package-management)
@@ -73,7 +73,7 @@
                                             effective-version "/site-ccache")
                             ,(getenv "GUILE_LOAD_COMPILED_PATH")))))))))))
     (inputs
-     (list guile-3.0 guile-json-4 guile-lens guix))
+     (list guile-next guile-json-4 guile-lens guix))
     (native-inputs
      (list guile-run64))
     (home-page "https://forge.systemreboot.net/kaagum")
