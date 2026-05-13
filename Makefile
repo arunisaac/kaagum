@@ -62,7 +62,7 @@ all: $(objects) $(config_file)
 	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@PROJECT_TITLE@|$(project_title)|' -e 's|@VERSION@|$(version)|' $< > $@
 
 %.go: %.scm $(config_file)
-	GUILE_AUTO_COMPILE=0 $(GUILD) compile $(GUILD_FLAGS) -L . -o $@ $<
+	GUILE_AUTO_COMPILE=0 ./pre-inst-env $(GUILD) compile $(GUILD_FLAGS) -o $@ $<
 
 check:
 	./pre-inst-env $(GUILE_RUN64) $(tests)
