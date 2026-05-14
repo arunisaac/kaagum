@@ -35,16 +35,21 @@
    (lambda (root)
      (match (pipe)
        ((in . out)
-        (match (waitpid (run-container root mounts namespaces 1
-                                       (lambda ()
-                                         (close-port in)
-                                         (with-output-to-port out
-                                           ;; TODO: Capture stderr too.
-                                           thunk)
-                                         (close-port out))))
-          ((_ . status)
-           (close-port out)
-           (let ((result (get-string-all in)))
-             (close-port in)
-             (container-result result
-                               (status:exit-val status))))))))))
+        (let ((child-pid (run-container root mounts namespaces 1
+                                        (lambda ()
+                                          (close-port in)
+                                          (with-output-to-port out
+                                            ;; TODO: Capture stderr too.
+                                            thunk)
+                                          (close-port out)))))
+          (close-port out)
+          ;; We read the child's output and then wait for the child to exit. It
+          ;; is important to do it in this order. If we first wait for the child
+          ;; to exit, the pipe buffer could fill up and the child's writes could
+          ;; be blocked; we'd have a deadlock.
+          (let ((result (get-string-all in)))
+            (close-port in)
+            (container-result result
+                              (match (waitpid child-pid)
+                                ((_ . status)
+                                 (status:exit-val status)))))))))))
