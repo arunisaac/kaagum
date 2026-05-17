@@ -27,6 +27,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (kaagum openai)
              (kaagum tea)
              (kaagum tools base)
+             (kaagum tools forges)
              (kaagum utils))
 
 (define (invalid-option opt name arg result)
@@ -107,4 +108,5 @@ Run kaagum AI agent.
        (run-tea-loop (assq-ref args 'api-base-uri)
                      (get-api-key (assq-ref args 'api-key-command))
                      (assq-ref args 'model)
-                     %base-tools)))))
+                     (append %base-tools
+                             %forge-tools))))))
