@@ -17,15 +17,10 @@
 ;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (kaagum openai)
-  #:use-module (rnrs conditions)
   #:use-module (rnrs exceptions)
-  #:use-module (srfi srfi-11)
-  #:use-module (web client)
-  #:use-module (web http)
-  #:use-module (web response)
-  #:use-module (json)
   #:use-module (lens)
   #:use-module (kaagum records)
+  #:use-module (kaagum web)
   #:export (get-api-key
             openai-query
             openai-models))
@@ -34,59 +29,6 @@
   (fields (name model-name)
           (description model-description)
           (context-length model-context-length lensed)))
-
-;; TODO: URIs must not be operated on using string operations. Replace with a
-;; more principled implementation involving (web uri).
-(define (uri-join base uri)
-  (string-append base uri))
-
-(define* (json-request method url #:key (headers '()) body)
-  "Send a HTTP @var{method} request to @var{url} with @var{body} and
-additional @var{headers}. Return JSON response."
-  (let-values (((response body)
-                (http-request url
-                              #:method method
-                              #:headers headers
-                              #:body body
-                              #:streaming? #t)))
-    ;; Guile does not consider application/json responses as textual, and does
-    ;; not automatically set the port encoding to UTF-8.
-    (set-port-encoding! body "UTF-8")
-    (case (quotient (response-code response)
-                    100)
-      ((2) (json->scm body))
-      ((4)
-       (raise-exception
-        (condition (make-violation)
-                   (make-irritants-condition (list method url headers body))
-                   (make-message-condition
-                    (string-append "JSON API request failed with client error code "
-                                   (number->string (response-code response)))))))
-      (else
-       (raise-exception
-        (condition (make-error)
-                   (make-irritants-condition (list method url headers body))
-                   (make-message-condition
-                    (string-append "JSON API request failed with code "
-                                   (number->string (response-code response))))))))))
-
-(define* (json-get url #:key (headers '()))
-  "Send a GET request to @var{url}. Return JSON response."
-  (json-request 'GET url
-                #:headers headers))
-
-(define* (json-post url #:key (headers '()) json)
-  "Send a POST request to @var{url} with @var{json} body and additional
-@var{headers}. The @samp{Content-Type} header is set to @samp{application/json}
-and need not be specified in @var{headers}. Return JSON response."
-  (json-request 'POST url
-                #:headers `((content-type application/json)
-                            ,@headers)
-                #:body (scm->json-string json)))
-
-;; Declare the Authorization header as opaque so that Guile doesn't try to mess
-;; with it.
-(declare-opaque-header! "Authorization")
 
 (define (openai-query base-uri api-key model messages tools)
   "Send a request to the OpenAI completions API and return the JSON response.
