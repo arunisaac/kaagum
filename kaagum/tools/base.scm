@@ -34,15 +34,15 @@
   "Return @code{#t} if @var{file} is a binary file. Else, return @code{#f}."
   ;; We use the following heuristic: If there are character decoding errors in
   ;; the first 10K characters, we assume that this is a binary file.
-  (guard (c ((or (i/o-decoding-error? c)
-                 (eq? (exception-kind c)
-                      'decoding-error))
-             #t))
-    (call-with-input-file file
-      (lambda (port)
-        (set-port-conversion-strategy! port 'error)
-        (get-string-n port (* 10 1024))))
-    #f))
+  (call-with-input-file file
+    (lambda (port)
+      (set-port-conversion-strategy! port 'error)
+      (guard (c ((or (i/o-decoding-error? c)
+                     (eq? (exception-kind c)
+                          'decoding-error))
+                 #t))
+        (get-string-n port (* 10 1024))
+        #f))))
 
 (define (make-regexp* pattern)
   "Like @code{make-regexp}, but report an error and abort if @var{pattern} is not a
