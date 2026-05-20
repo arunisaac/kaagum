@@ -27,8 +27,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 regex)
   #:use-module (kaagum tools)
-  #:export (%list-files
-            %base-tools))
+  #:export (%base-tools))
 
 (define (binary-file? file)
   "Return @code{#t} if @var{file} is a binary file. Else, return @code{#f}."
