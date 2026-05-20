@@ -267,7 +267,11 @@ available tools to their respective @code{<tool>} objects."
                            args))
                      (tool-container-namespaces tool)
                    (lambda ()
-                     (chdir (tool-call-session-cwd tool-call))
+                     ;; If the tool does not mount the current directory in the
+                     ;; container, it may not exist. So, chdir only when the
+                     ;; current directory exists in the container.
+                     (when (file-exists? (tool-call-session-cwd tool-call))
+                       (chdir (tool-call-session-cwd tool-call)))
                      (apply (tool-proc tool)
                             args)))))
            ;; Build result.
