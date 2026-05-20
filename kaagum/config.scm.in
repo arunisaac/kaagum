@@ -19,7 +19,8 @@
 (define-module (kaagum config)
   #:export (%project
             %project-title
-            %version))
+            %version
+            %certificates-directory))
 
 (define %project
   "@PROJECT@")
@@ -29,3 +30,6 @@
 
 (define %version
   "@VERSION@")
+
+(define %certificates-directory
+  "@CERTIFICATES_DIRECTORY@")

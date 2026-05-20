@@ -23,6 +23,7 @@
                 #:select (guile-next guile-json-4))
   #:use-module ((gnu packages guile-xyz)
                 #:select (guile-lens guile-run64))
+  #:use-module ((gnu packages nss) #:select (nss-certs))
   #:use-module ((gnu packages package-management)
                 #:select (guix))
   #:use-module (guix build-system emacs)
@@ -45,7 +46,9 @@
     (build-system gnu-build-system)
     (arguments
      (list #:make-flags
-           #~(list (string-append "prefix=" #$output))
+           #~(list (string-append "prefix=" #$output)
+                   (string-append "CERTIFICATES_DIRECTORY="
+                                  #$(this-package-input "nss-certs")))
            #:modules `(((guix build guile-build-system)
                         #:select (target-guile-effective-version))
                        ,@%default-gnu-imported-modules)
@@ -73,7 +76,7 @@
                                             effective-version "/site-ccache")
                             ,(getenv "GUILE_LOAD_COMPILED_PATH")))))))))))
     (inputs
-     (list guile-next guile-json-4 guile-lens guix))
+     (list guile-next guile-json-4 guile-lens guix nss-certs))
     (native-inputs
      (list guile-run64))
     (home-page "https://forge.systemreboot.net/kaagum")

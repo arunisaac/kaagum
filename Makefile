@@ -28,6 +28,7 @@ GUILE_RUN64 = guile-run64
 LZIP = lzip
 SED = sed
 
+CERTIFICATES_DIRECTORY = /etc/ssl/certs
 GUILD_FLAGS =
 
 prefix ?= /usr/local
@@ -59,7 +60,7 @@ godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
 all: $(objects) $(config_file)
 
 %.scm: %.scm.in
-	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@PROJECT_TITLE@|$(project_title)|' -e 's|@VERSION@|$(version)|' $< > $@
+	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@PROJECT_TITLE@|$(project_title)|' -e 's|@VERSION@|$(version)|' -e 's|@CERTIFICATES_DIRECTORY@|$(CERTIFICATES_DIRECTORY)|' $< > $@
 
 %.go: %.scm $(config_file)
 	GUILE_AUTO_COMPILE=0 ./pre-inst-env $(GUILD) compile $(GUILD_FLAGS) -o $@ $<
