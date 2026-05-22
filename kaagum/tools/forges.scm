@@ -52,7 +52,7 @@
           (body post-body)))
 
 (define (event->post event)
-  "Convert Forgejo @var{event} JSON to @code{<post>} object."
+  "Convert GitHub @var{event} JSON to @code{<post>} object."
   (post (author (focus (in "user" "login")
                        event)
                 (focus (in "user" "full_name")
@@ -68,17 +68,41 @@
              #:host host
              #:path (string-append "/" (encode-and-join-uri-path parts))))
 
+(define (github-issue owner repo issue-number)
+  "Return GitHub @code{<issue>} object corresponding to @var{issue-number} in
+@var{repo} owned by @var{owner}."
+  (let* ((headers `((user-agent . ,(string-append %project " " %version))))
+         (issue-json (json-get (build-uri* "api.github.com"
+                                           "repos" owner repo "issues"
+                                           (number->string issue-number))
+                               #:headers headers))
+         (timeline (json-get (build-uri* "api.github.com"
+                                         "repos" owner repo "issues"
+                                         (number->string issue-number)
+                                         "timeline")
+                             #:headers headers)))
+    (issue (focus (key-ref "number")
+                  issue-json)
+           (focus (key-ref "title")
+                  issue-json)
+           (focus (key-ref "state")
+                  issue-json)
+           (cons (event->post issue-json)
+                 (filter-map (lambda (event)
+                               (and (string=? (focus (key-ref "event")
+                                                     event)
+                                              "commented")
+                                    (event->post event)))
+                             (vector->list timeline))))))
+
 (define (forgejo-issue host owner repo issue-number)
-  (let ((issue-json
-         (json-get (build-uri* host
-                               "api" "v1" "repos" owner repo "issues"
-                               (number->string issue-number))))
-        (timeline
-         (vector->list
-          (json-get (build-uri* host
-                                "api" "v1" "repos" owner repo "issues"
-                                (number->string issue-number)
-                                "timeline")))))
+  (let ((issue-json (json-get (build-uri* host
+                                          "api" "v1" "repos" owner repo "issues"
+                                          (number->string issue-number))))
+        (timeline (json-get (build-uri* host
+                                        "api" "v1" "repos" owner repo "issues"
+                                        (number->string issue-number)
+                                        "timeline"))))
     (issue (focus (key-ref "number")
                   issue-json)
            (focus (key-ref "title")
@@ -91,7 +115,7 @@
                                                      event)
                                               "comment")
                                     (event->post event)))
-                             timeline)))))
+                             (vector->list timeline))))))
 
 (define (render-issue issue port)
   "Render @var{issue} as text to @var{port}."
@@ -112,10 +136,11 @@ State: ~a~%~%"
                       (post-body event)))
             (issue-timeline issue)))
 
-(define %forgejo-issue
-  (tool #:description "Read conversation in Forgejo issue.
+(define %github-issue
+  (tool #:description "Read conversation in GitHub/Forgejo issue.
 
-For example, to read https://codeberg.org/guix/maintenance/issues/105, use the following arguments:
+For example, to read https://codeberg.org/guix/maintenance/issues/105, use the
+following arguments:
 {
   \"host\": \"codeberg.org\",
   \"owner\": \"guix\",
@@ -125,8 +150,7 @@ For example, to read https://codeberg.org/guix/maintenance/issues/105, use the f
 "
         #:parameters `(("host" . ,(tool-parameter
                                    #:type "string"
-                                   #:description "Host (aka domain name) of Forgejo instance. Default is \"codeberg.org\"."
-                                   #:required? #t))
+                                   #:description "Host (aka domain name) of GitHub/Forgejo instance. Default is \"github.com\"."))
                        ("owner" . ,(tool-parameter
                                     #:type "string"
                                     #:description "Owner (or organization) from the issue URL"
@@ -139,8 +163,10 @@ For example, to read https://codeberg.org/guix/maintenance/issues/105, use the f
                                      #:type "integer"
                                      #:description "Issue number to read"
                                      #:required? #t)))
-        #:proc (lambda* (#:key host owner repo number)
-                 (render-issue (forgejo-issue host owner repo number)
+        #:proc (lambda* (#:key (host "github.com") owner repo number)
+                 (render-issue (if (string=? host "github.com")
+                                   (github-issue owner repo number)
+                                   (forgejo-issue host owner repo number))
                                (current-output-port)))
         #:container-mappings (const (cons (file-system-mapping
                                             (source %certificates-directory)
@@ -148,7 +174,7 @@ For example, to read https://codeberg.org/guix/maintenance/issues/105, use the f
                                             (writable? #f))
                                           %network-file-mappings))
         #:container-namespaces (delq 'net %namespaces)
-        #:title (lambda* (#:key host owner repo number)
+        #:title (lambda* (#:key (host "github.com") owner repo number)
                   (string-append "read "
                                  (uri->string (build-uri* host
                                                           owner repo "issues"
@@ -156,4 +182,4 @@ For example, to read https://codeberg.org/guix/maintenance/issues/105, use the f
         #:kind "read"))
 
 (define %forge-tools
-  `(("forgejo-issue" . ,%forgejo-issue)))
+  `(("github-issue" . ,%github-issue)))
