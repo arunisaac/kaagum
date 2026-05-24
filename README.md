@@ -14,6 +14,7 @@ Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client
 - Providing custom tools written in Guile
 - Fine-grained enabling/disabling of tools
 - Tool-specific container/network access configuration
+- More tools! (git clone, git diff, git log, guix build, etc.)
 
 # Author's note on AI use
 
