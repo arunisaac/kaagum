@@ -2,7 +2,7 @@ kaagum (pronounced *kah-gum*) is a tiny, security-focused AI agent written in Gu
 
 kaagum runs tool calls securely using containers and capability-based access. Tool calls have limited or no access to the filesystem and to the network. Capabilities allow network access to be controlled with fine granularity. Containers are implemented using Guix's container API.
 
-Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice.
+Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice. In the interest of security, the ACP client's file read/write capabilities are never used.
 
 # Brainstorming future direction
 
