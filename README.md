@@ -16,6 +16,36 @@ Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client
 - Tool-specific container/network access configuration
 - More tools! (git clone, git diff, git log, guix build, etc.)
 
+# Getting started
+
+The following instructions get you started running kaagum with Guix and Emacs [agent-shell](https://github.com/xenodium/agent-shell).
+
+Add the following channel to your `channels.scm` and run a `guix pull`. Then install `kaagum` and `emacs-agent-shell-kaagum`.
+```scheme
+(channel
+  (name 'kaagum)
+  (url "https://klaus.systemreboot.net/kaagum/")
+  (branch "main")
+  (introduction
+   (make-channel-introduction
+    "b71c385f8885eb629ec6ad0c47eeb1f3e12be687"
+    (openpgp-fingerprint
+     "7F73 0343 F2F0 9F3C 77BF  79D3 2E25 EE8B 6180 2BB3"))))
+```
+Put the following in your `~/.emacs`. The `--api-key-command` specifies the password manager command to execute to get the API key for your LLM service provider. The `--model` specifies the name of the model you wish to interact with.
+```elisp
+(require 'agent-shell-kaagum)
+
+(setq agent-shell-kaagum-command "kaagum"
+      agent-shell-kaagum-parameters
+      '("--api-key-command=pass openrouter.ai"
+        "--model=anthropic/claude-sonnet-4.6"))
+
+(add-to-list 'agent-shell-agent-configs
+             (agent-shell-kaagum-make-agent-config))
+```
+Change to the directory you want to work in. kaagum will only have access to that directory and its contents. Run `M-x agent-shell` and select `kaagum` from the menu.
+
 # Author's note on AI use
 
 This program is not an endorsement of AI or its use. Please think for yourself, and use AI wisely (if at all). The societal, environmental and ethical consequences of AI are real, and I struggle with them myself. I hope we, as the free software community, can come to some reasonable consensus on how we are going to deal with AI. Meanwhile, I have been [nerd sniped](https://xkcd.com/356/) into experimenting with AI, and this is my effort to disentangle myself from popular AI agents that are recklessly biased towards convenience and thoughtless about dependencies (think npm crap).
