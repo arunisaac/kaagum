@@ -1,6 +1,6 @@
 kaagum (pronounced *kah-gum*) is a tiny, security-focused AI agent written in Guile with minimal dependencies. Kaagum works with any LLM that provides an OpenAI-compatible API, including local models such as those run via [llama-cpp](https://github.com/ggml-org/llama.cpp)—no data ever needs to leave your machine.
 
-kaagum runs tool calls securely using containers and capability-based access. Tool calls have limited or no access to the filesystem and to the network. Capabilities allow network access to be controlled with fine granularity. Containers are implemented using Guix's container API.
+kaagum runs tool calls securely using fine-grained sandboxing based on the principle of least privilege. Tool calls that deal with the filesystem run in containers with no network access and with filesystem access restricted to the directories they need to see. Tool calls that need network access are limited to querying specific hard-coded endpoints. For example, a tool that reads an issue on a software forge (like GitHub or Codeberg) can only query a specific API endpoint on that forge and nothing else. Other AI agents do not provide this level of fine-grained network access control.
 
 Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) and allows you to use any compatible user interface of your choice. In the interest of security, the ACP client's file read/write capabilities are never used.
 
