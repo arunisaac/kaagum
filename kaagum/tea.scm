@@ -34,6 +34,7 @@
   #:use-module (kaagum openai)
   #:use-module (kaagum records)
   #:use-module (kaagum tools)
+  #:use-module (kaagum trace)
   #:use-module (kaagum utils)
   #:export (run-tea-loop))
 
@@ -957,7 +958,9 @@ in @code{tea-loop}."
 (define* (tea-loop state llm-base-uri llm-api-key models tools
                    #:optional (events (let ((line (get-line (current-input-port))))
                                         (and (not (eof-object? line))
-                                             (list (acp-message (json-string->scm line)))))))
+                                             (begin
+                                               (trace 'acp "<- ~a" line)
+                                               (list (acp-message (json-string->scm line))))))))
   "Run a @acronym{TEA, The Elm Architecture} loop starting with @var{state}.
 
 @var{llm-base-uri}, @var{llm-api-key} and @var{tools} are the same as in
@@ -986,9 +989,11 @@ in @code{tea-loop}."
   (cond
    ;; Send message to client, and return the state unchanged.
    ((acp-message? effect)
-    (display (scm->json-string (focus acp-message-json effect)))
-    (newline)
-    (flush-output-port (current-output-port))
+    (let ((json-message (scm->json-string (focus acp-message-json effect))))
+      (display json-message)
+      (newline)
+      (flush-output-port (current-output-port))
+      (trace 'acp "-> ~a" json-message))
     (list))
    ;; Send request to LLM, handle the response, and return the new state.
    ((llm-request? effect)

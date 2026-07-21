@@ -21,6 +21,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
 ;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (rnrs io ports)
+             (srfi srfi-26)
              (srfi srfi-37)
              (ice-9 match)
              (kaagum config)
@@ -28,6 +29,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (kaagum tea)
              (kaagum tools base)
              (kaagum tools forges)
+             (kaagum trace)
              (kaagum utils))
 
 (define (invalid-option opt name arg result)
@@ -47,6 +49,9 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
         (option (list #\k "api-key-command") #t #f
                 (lambda (opt name arg result)
                   (acons 'api-key-command arg result)))
+        (option (list "trace-file") #t #f
+                (lambda (opt name arg result)
+                  (acons 'trace-file arg result)))
         (option (list #\v "version") #f #f
                 (lambda (opt name arg result)
                   (acons 'version #t result)))
@@ -66,6 +71,8 @@ Run kaagum AI agent.
   --api-key-command=COMMAND      command to run to get API key
   --model=MODEL                  LLM model name to start new sessions with
                                  (default: \"anthropic/claude-opus-4.6\")
+
+  --trace-file=FILE              trace out all interactions in FILE
 
   --version                      print version and exit
   --help                         print this help and exit
@@ -105,8 +112,15 @@ Run kaagum AI agent.
          (exit #t))
        (unless (assq-ref args 'api-key-command)
          (die "--api-key-command not specified"))
-       (run-tea-loop (assq-ref args 'api-base-uri)
-                     (get-api-key (assq-ref args 'api-key-command))
-                     (assq-ref args 'model)
-                     (append %base-tools
-                             %forge-tools))))))
+       (let ((thunk (cut run-tea-loop
+                         (assq-ref args 'api-base-uri)
+                         (get-api-key (assq-ref args 'api-key-command))
+                         (assq-ref args 'model)
+                         (append %base-tools
+                                 %forge-tools))))
+         (if (assq-ref args 'trace-file)
+             (call-with-output-file (assq-ref args 'trace-file)
+               (lambda (trace-port)
+                 (parameterize ((%trace-port trace-port))
+                   (thunk))))
+             (thunk)))))))

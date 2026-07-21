@@ -22,6 +22,7 @@
   #:use-module (web client)
   #:use-module (web http)
   #:use-module (web response)
+  #:use-module (kaagum trace)
   #:use-module (json)
   #:export (uri-join
             json-request
@@ -40,6 +41,9 @@
 (define* (json-request method url #:key (headers '()) body)
   "Send a HTTP @var{method} request to @var{url} with @var{body} and
 additional @var{headers}. Return JSON response."
+  (if body
+      (trace 'web "-> ~a ~a ~a" method url body)
+      (trace 'web "-> ~a ~a" method url))
   (let-values (((response body)
                 (http-request url
                               #:method method
@@ -51,7 +55,9 @@ additional @var{headers}. Return JSON response."
     (set-port-encoding! body "UTF-8")
     (case (quotient (response-code response)
                     100)
-      ((2) (json->scm body))
+      ((2) (let ((result (json->scm body)))
+             (trace 'web "<- ~a ~a" (response-code response) (scm->json-string result))
+             result))
       ((4)
        (raise-exception
         (condition (make-violation)
