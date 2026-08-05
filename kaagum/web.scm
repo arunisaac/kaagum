@@ -59,6 +59,7 @@ additional @var{headers}. Return JSON response."
              (trace 'web "<- ~a ~a" (response-code response) (scm->json-string result))
              result))
       ((4)
+       (trace 'web "<- ~a" (response-code response))
        (raise-exception
         (condition (make-violation)
                    (make-irritants-condition (list method url headers body))
@@ -66,6 +67,7 @@ additional @var{headers}. Return JSON response."
                     (string-append "JSON API request failed with client error code "
                                    (number->string (response-code response)))))))
       (else
+       (trace 'web "<- ~a" (response-code response))
        (raise-exception
         (condition (make-error)
                    (make-irritants-condition (list method url headers body))
