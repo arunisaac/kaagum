@@ -24,7 +24,11 @@
   #:use-module (web response)
   #:use-module (kaagum trace)
   #:use-module (json)
-  #:export (uri-join
+  #:export (http-error
+            http-error?
+            http-error-code
+
+            uri-join
             json-request
             json-get
             json-post))
@@ -33,6 +37,11 @@
 ;; with it.
 (declare-opaque-header! "Authorization")
 
+(define-condition-type &http-error &error
+  http-error http-error?
+  (code http-error-code)
+  (reason-phrase http-error-reason-phrase))
+
 ;; TODO: URIs must not be operated on using string operations. Replace with a
 ;; more principled implementation involving (web uri).
 (define (uri-join base uri)
@@ -40,7 +49,8 @@
 
 (define* (json-request method url #:key (headers '()) body)
   "Send a HTTP @var{method} request to @var{url} with @var{body} and
-additional @var{headers}. Return JSON response."
+additional @var{headers}. Return JSON response. Raise @code{&http-error}
+condition on failure."
   (if body
       (trace 'web "-> ~a ~a ~a" method url body)
       (trace 'web "-> ~a ~a" method url))
@@ -58,18 +68,11 @@ additional @var{headers}. Return JSON response."
       ((2) (let ((result (json->scm body)))
              (trace 'web "<- ~a ~a" (response-code response) (scm->json-string result))
              result))
-      ((4)
-       (trace 'web "<- ~a" (response-code response))
-       (raise-exception
-        (condition (make-violation)
-                   (make-irritants-condition (list method url headers body))
-                   (make-message-condition
-                    (string-append "JSON API request failed with client error code "
-                                   (number->string (response-code response)))))))
       (else
        (trace 'web "<- ~a" (response-code response))
        (raise-exception
-        (condition (make-error)
+        (condition (http-error (response-code response)
+                               (response-reason-phrase response))
                    (make-irritants-condition (list method url headers body))
                    (make-message-condition
                     (string-append "JSON API request failed with code "
