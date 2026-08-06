@@ -495,7 +495,7 @@ in @code{tea-loop}."
                                       ;; slash commands cannot send LLM requests
                                       ;; or initiate other exchanges.
                                       (end-turn-effects
-                                       (end-turn-effects session-id models)))
+                                       (end-turn-effects session-id models "end_turn")))
                            (state-return
                             (append slash-command-effects
                                     end-turn-effects))))))
@@ -740,7 +740,7 @@ session with @var{session-id}.
                                      ("status" . "pending"))))))
                   effects))))))))
 
-(define (end-turn-effects session-id models)
+(define (end-turn-effects session-id models stop-reason)
   "Return the state-monadic list of effects for ending the turn of session with
 @var{session-id}.
 
@@ -779,7 +779,7 @@ session with @var{session-id}.
                              ("id" . ,(focus state-client-request-id
                                              state))
                              ("result"
-                              ("stopReason" . "end_turn")
+                              ("stopReason" . ,stop-reason)
                               ;; Report usage if it is non-zero. Usage can
                               ;; be zero if turn was for a slash command.
                               ,@(if (any (negate zero?)
@@ -883,7 +883,7 @@ in @code{tea-loop}."
                                state))
                    ;; … and a cancellation is not in progress; end turn.
                    (state-let* ((end-turn-effects
-                                 (end-turn-effects session-id models)))
+                                 (end-turn-effects session-id models "end_turn")))
                      (state-return (append effects end-turn-effects)))
                    ;; Else, return what we have so far.
                    (state-return effects)))
