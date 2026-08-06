@@ -29,4 +29,8 @@
     (display subsystem (%trace-port))
     (display ": " (%trace-port))
     (apply format (%trace-port) message args)
-    (newline (%trace-port))))
+    (newline (%trace-port))
+    ;; fsync the trace port to ensure that the trace is written to disk; just
+    ;; preparing for the worst-case scenario where kaagum crashes or is killed
+    ;; before the trace can reach the disk.
+    (fsync (%trace-port))))
