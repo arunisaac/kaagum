@@ -36,6 +36,7 @@
   #:use-module (kaagum tools)
   #:use-module (kaagum trace)
   #:use-module (kaagum utils)
+  #:use-module (kaagum web)
   #:export (run-tea-loop))
 
 (define %tool-allow-once
@@ -950,6 +951,15 @@ in @code{tea-loop}."
                                          request-id
                                          state)))))
            (client-request-effects json-message models tools)))))
+   ;; End turn if message is an LLM response containing an HTTP error.
+   ((and (llm-response? message)
+         (http-error? (llm-response-json message)))
+    (end-turn-effects (llm-response-session-id message)
+                      models
+                      ;; TODO: The v2 version of the protocol allows custom stop
+                      ;; reasons. Perhaps we can use that here to be more
+                      ;; specific about the cause of the failure.
+                      "refusal"))
    ((llm-response? message)
     (llm-response-effects message tools models))
    ((tool-call-result? message)
