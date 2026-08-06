@@ -525,11 +525,7 @@ in @code{tea-loop}."
                                           (put state-requests-alist
                                                '()
                                                <>))))
-                 (state-return
-                  (list (acp-message `(("jsonrpc" . "2.0")
-                                       ("id" . ,request-id)
-                                       ("result"
-                                        ("stopReason" . "cancelled")))))))))))))))
+                 (end-turn-effects session-id models "cancelled"))))))))))
 
 (define (client-response-effects response)
   "Return the state-monadic list of effects for a new ACP @var{response}."
