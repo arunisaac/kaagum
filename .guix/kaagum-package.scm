@@ -48,7 +48,8 @@
      (list #:make-flags
            #~(list (string-append "prefix=" #$output)
                    (string-append "CERTIFICATES_DIRECTORY="
-                                  #$(this-package-input "nss-certs")))
+                                  #$(this-package-input "nss-certs")
+                                  "/etc/ssl/certs"))
            #:modules `(((guix build guile-build-system)
                         #:select (target-guile-effective-version))
                        ,@%default-gnu-imported-modules)
