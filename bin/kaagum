@@ -96,7 +96,8 @@ Run kaagum AI agent.
   ;; We use a shell to execute since
   ;; 1. api-key-command is a string, not a list of string arguments
   ;; 2. api-key-command may contain pipes
-  (call-with-input-pipe `("sh" "-c" ,api-key-command)
+  ;; We set pipefail so that a failure in any command in the pipe is reported.
+  (call-with-input-pipe `("sh" "-o" "pipefail" "-c" ,api-key-command)
     (compose string-trim-both get-string-all)))
 
 (define main
