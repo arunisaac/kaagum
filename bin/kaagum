@@ -29,6 +29,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (kaagum tea)
              (kaagum tools base)
              (kaagum tools forges)
+             (kaagum tools kagi)
              (kaagum trace)
              (kaagum utils))
 
@@ -49,6 +50,9 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
         (option (list #\k "api-key-command") #t #f
                 (lambda (opt name arg result)
                   (acons 'api-key-command arg result)))
+        (option (list "kagi-api-key-command") #t #f
+                (lambda (opt name arg result)
+                  (acons 'kagi-api-key-command arg result)))
         (option (list "trace-file") #t #f
                 (lambda (opt name arg result)
                   (acons 'trace-file arg result)))
@@ -71,6 +75,8 @@ Run kaagum AI agent.
   --api-key-command=COMMAND      command to run to get API key
   --model=MODEL                  LLM model name to start new sessions with
                                  (default: \"anthropic/claude-opus-4.6\")
+
+  --kagi-api-key-command=COMMAND command to run to get Kagi API key
 
   --trace-file=FILE              trace out all interactions in FILE
 
@@ -112,15 +118,22 @@ Run kaagum AI agent.
          (exit #t))
        (unless (assq-ref args 'api-key-command)
          (die "--api-key-command not specified"))
-       (let ((thunk (cut run-tea-loop
-                         (assq-ref args 'api-base-uri)
-                         (get-api-key (assq-ref args 'api-key-command))
-                         (assq-ref args 'model)
-                         (append %base-tools
-                                 %forge-tools))))
-         (if (assq-ref args 'trace-file)
-             (call-with-output-file (assq-ref args 'trace-file)
-               (lambda (trace-port)
-                 (parameterize ((%trace-port trace-port))
-                   (thunk))))
-             (thunk)))))))
+       (let* ((kagi-api-key-command (assq-ref args 'kagi-api-key-command))
+              (thunk (cut run-tea-loop
+                          (assq-ref args 'api-base-uri)
+                          (get-api-key (assq-ref args 'api-key-command))
+                          (assq-ref args 'model)
+                          (append %base-tools
+                                  %forge-tools
+                                  (if kagi-api-key-command
+                                      %kagi-tools
+                                      '())))))
+         (parameterize ((%kagi-api-key (pk (and kagi-api-key-command
+                                                (get-api-key kagi-api-key-command)))))
+           ;; (trace 'kagi "Key ~a" (%kagi-api-key))
+           (if (assq-ref args 'trace-file)
+               (call-with-output-file (assq-ref args 'trace-file)
+                 (lambda (trace-port)
+                   (parameterize ((%trace-port trace-port))
+                     (thunk))))
+               (thunk))))))))
