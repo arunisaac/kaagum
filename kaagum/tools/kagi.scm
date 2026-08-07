@@ -18,6 +18,7 @@
 
 (define-module (kaagum tools kagi)
   #:use-module (srfi srfi-43)
+  #:use-module (ice-9 match)
   #:use-module (web client)
   #:use-module (gnu build linux-container)
   #:use-module (gnu system file-systems)
@@ -51,6 +52,12 @@ and for results published or updated before @var{before-date}. Use
                        ,@(if before-date
                              `(("before" . ,before-date))
                              '())))))
+
+(define (kagi-extract url)
+  (json-post "https://kagi.com/api/v1/extract"
+             #:headers `((authorization
+                          . ,(string-append "Bearer " (%kagi-api-key))))
+             #:json `(("pages" . ,(vector `(("url" . ,url)))))))
 
 (define %kagi-search
   (tool #:description "Perform a web search using the Kagi search engine."
@@ -97,5 +104,33 @@ Default: no specific lens is used, results from all sources are included"))
                   (format #f "kagi-search: ~a" query))
         #:kind "search"))
 
+(define %kagi-extract
+  (tool #:description "Extract content from web pages as markdown."
+        #:parameters `(("url" . ,(tool-parameter
+                                  #:type "string"
+                                  #:description "URL of the page to extract"
+                                  #:required? #t)))
+        #:proc (lambda* (#:key url)
+                 (match (focus (key-ref "data")
+                               (kagi-extract url))
+                   (#(result)
+                    (let ((error-message (focus (key-ref "error") result)))
+                      (format (current-output-port)
+                              "~a~%"
+                              (or error-message
+                                  (focus (key-ref "markdown") result)))
+                      (when error-message
+                        (exit #f))))))
+        #:container-mappings (const (cons (file-system-mapping
+                                           (source %certificates-directory)
+                                           (target (x509-certificate-directory))
+                                           (writable? #f))
+                                          %network-file-mappings))
+        #:container-namespaces (delq 'net %namespaces)
+        #:title (lambda* (#:key url)
+                  (format #f "kagi-extract: ~a" url))
+        #:kind "fetch"))
+
 (define %kagi-tools
-  `(("kagi-search" . ,%kagi-search)))
+  `(("kagi-search" . ,%kagi-search)
+    ("kagi-extract" . ,%kagi-extract)))
