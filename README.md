@@ -20,19 +20,7 @@ Kaagum offers no user interface on its own. Instead, it speaks the [Agent Client
 
 The following instructions get you started running kaagum with Guix and Emacs [agent-shell](https://github.com/xenodium/agent-shell).
 
-Add the following channel to your `channels.scm` and run a `guix pull`. Then install `kaagum` and `emacs-agent-shell-kaagum`.
-```scheme
-(channel
-  (name 'kaagum)
-  (url "https://klaus.systemreboot.net/kaagum/")
-  (branch "main")
-  (introduction
-   (make-channel-introduction
-    "b71c385f8885eb629ec6ad0c47eeb1f3e12be687"
-    (openpgp-fingerprint
-     "7F73 0343 F2F0 9F3C 77BF  79D3 2E25 EE8B 6180 2BB3"))))
-```
-Put the following in your `~/.emacs`. The `--api-key-command` specifies the password manager command to execute to get the API key for your LLM service provider. The `--model` specifies the name of the model you wish to interact with.
+Install the `kaagum` and `emacs-agent-shell-kaagum` packages from Guix. Then, put the following in your `~/.emacs`. The `--api-key-command` specifies the password manager command to execute to get the API key for your LLM service provider. The `--model` specifies the name of the model you wish to interact with.
 ```elisp
 (require 'agent-shell-kaagum)
 
