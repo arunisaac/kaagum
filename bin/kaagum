@@ -50,6 +50,9 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
         (option (list #\k "api-key-command") #t #f
                 (lambda (opt name arg result)
                   (acons 'api-key-command arg result)))
+        (option (list #\t "more-tools") #t #f
+                (lambda (opt name arg result)
+                  (acons 'more-tools arg result)))
         (option (list "kagi-api-key-command") #t #f
                 (lambda (opt name arg result)
                   (acons 'kagi-api-key-command arg result)))
@@ -75,6 +78,7 @@ Run kaagum AI agent.
   -k, --api-key-command=COMMAND  command to run to get API key
   -m, --model=MODEL              LLM model name to start new sessions with
                                  (default: \"anthropic/claude-opus-4.8\")
+  -t, --more-tools=FILE          scheme file providing more tools to the agent
 
   --kagi-api-key-command=COMMAND command to run to get Kagi API key
 
@@ -128,6 +132,9 @@ Run kaagum AI agent.
                                   %forge-tools
                                   (if kagi-api-key-command
                                       %kagi-tools
+                                      '())
+                                  (if (assq-ref args 'more-tools)
+                                      (load (assq-ref args 'more-tools))
                                       '())))))
          (parameterize ((%kagi-api-key (and kagi-api-key-command
                                             (get-api-key kagi-api-key-command))))
