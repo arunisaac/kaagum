@@ -70,18 +70,18 @@ to invoke kaagum."
           "Usage: ~a [OPTIONS]
 Run kaagum AI agent.
 
-  --api-base-uri=URI             base API URI of LLM provider
+  -a, --api-base-uri=URI         base API URI of LLM provider
                                  (default: \"https://openrouter.ai/api\")
-  --api-key-command=COMMAND      command to run to get API key
-  --model=MODEL                  LLM model name to start new sessions with
+  -k, --api-key-command=COMMAND  command to run to get API key
+  -m, --model=MODEL              LLM model name to start new sessions with
                                  (default: \"anthropic/claude-opus-4.8\")
 
   --kagi-api-key-command=COMMAND command to run to get Kagi API key
 
   --trace-file=FILE              trace out all interactions in FILE
 
-  --version                      print version and exit
-  --help                         print this help and exit
+  -v, --version                  print version and exit
+  -h, --help                     print this help and exit
 "
           program))
 
