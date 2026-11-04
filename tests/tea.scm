@@ -63,4 +63,28 @@
    (state #f 0 1 '()
           `((0 . ,(session (getcwd) "foo"))))))
 
+(test-assert "handle LLM response without \"cached_tokens\" field in usage"
+  (run-with-state
+   (acp-effects (llm-response 0
+                              `(("id" . "gen-1793743825")
+                                ("model" . "anthropic/claude-haiku-5.5")
+                                ("choices"
+                                 .
+                                 #((("message"
+                                     ("role" . "assistant")
+                                     ("content" . "Hello! How can I help you today?")))))
+                                ("usage"
+                                 ("prompt_tokens" . 1770)
+                                 ("completion_tokens" . 13)
+                                 ("total_tokens" . 1783)
+                                 ("cost" . 3.601e-4)
+                                 ("prompt_tokens_details"
+                                  ("cache_write_tokens" . 1766))
+                                 ("completion_tokens_details"
+                                  ("reasoning_tokens" . 0)))))
+                %models
+                '())
+   (state #f 0 1 '()
+          `((0 . ,(session (getcwd) "foo"))))))
+
 (test-end "tea")

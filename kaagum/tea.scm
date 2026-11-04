@@ -843,10 +843,11 @@ in @code{tea-loop}."
                                        0)
                                    <>)
                               (add (state-session-cache-read-tokens session-id)
-                                   (focus (in-json "usage"
-                                                   "prompt_tokens_details"
-                                                   "cached_tokens")
-                                          (llm-response-json response))
+                                   (or (focus (in-json "usage"
+                                                       "prompt_tokens_details"
+                                                       "cached_tokens")
+                                              (llm-response-json response))
+                                       0)
                                    <>)
                               (add (state-session-cache-write-tokens session-id)
                                    (or (focus (in-json "usage"
