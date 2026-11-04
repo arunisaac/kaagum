@@ -129,8 +129,8 @@ Run kaagum AI agent.
                                   (if kagi-api-key-command
                                       %kagi-tools
                                       '())))))
-         (parameterize ((%kagi-api-key (pk (and kagi-api-key-command
-                                                (get-api-key kagi-api-key-command)))))
+         (parameterize ((%kagi-api-key (and kagi-api-key-command
+                                            (get-api-key kagi-api-key-command))))
            ;; (trace 'kagi "Key ~a" (%kagi-api-key))
            (if (assq-ref args 'trace-file)
                (call-with-output-file (assq-ref args 'trace-file)
