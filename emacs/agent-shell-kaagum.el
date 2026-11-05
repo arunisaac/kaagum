@@ -43,6 +43,22 @@
   :type '(repeat string)
   :group 'agent-shell)
 
+(defcustom agent-shell-kaagum-environment
+  nil
+  "Environment variables for the kaagum agent.
+
+This should be a list of environment variables to be used when starting
+the kaagum agent.
+
+Example usage to set custom environment variables:
+
+  (setq agent-shell-kaagum-environment
+        (agent-shell-make-environment-variables
+         \"MY_VAR\" \"some-value\"
+         \"MY_OTHER_VAR\" \"another-value\"))"
+  :type '(repeat string)
+  :group 'agent-shell)
+
 (defun agent-shell-kaagum-make-agent-config ()
   "Create a kaagum ACP agent configuration.
 
@@ -65,6 +81,7 @@ Returns an agent configuration alist using `agent-shell-make-agent-config'."
   "Create a kaagum ACP client using BUFFER as context."
   (agent-shell--make-acp-client :command agent-shell-kaagum-command
                                 :command-params agent-shell-kaagum-parameters
+                                :environment-variables agent-shell-kaagum-environment
                                 :context-buffer buffer))
 
 (defun agent-shell-kaagum--welcome-message (config)
