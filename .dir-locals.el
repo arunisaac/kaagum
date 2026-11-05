@@ -11,4 +11,5 @@
   ;; define-public-record-type* correctly.
   (eval . (put 'call-with-container* 'scheme-indent-function 2))
   (eval . (put 'call-with-input-pipe 'scheme-indent-function 1))
-  (eval . (put 'state-let* 'scheme-indent-function 1))))
+  (eval . (put 'state-let* 'scheme-indent-function 1))
+  (eval . (put 'state-when 'scheme-indent-function 1))))
