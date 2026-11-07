@@ -213,7 +213,12 @@ For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
                                       (const #t)
                                       get-line
                                       <>)))
-                             (remove binary-file?
+                             (filter (lambda (file)
+                                       ;; Ensure file is a regular file and is
+                                       ;; not binary.
+                                       (and (eq? (stat:type (stat file))
+                                                 'regular)
+                                            (not (binary-file? file))))
                                      (files-recursively files-root files-pattern)))))
         #:title (lambda* (#:key pattern files-root files-pattern)
                   (if files-pattern
