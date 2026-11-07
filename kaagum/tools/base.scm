@@ -205,20 +205,26 @@ For example, to match all scheme (.scm) files, use \"\\.scm$\"")))
                                                        "~a:~a:~a~%"
                                                        file line-number line))))))
                    (for-each (lambda (file)
-                               (call-with-input-file file
-                                 (cut port-transduce
-                                      (compose (tenumerate 1)
-                                               (tfilter line-matcher)
-                                               (tlog (make-line-logger file)))
-                                      (const #t)
-                                      get-line
-                                      <>)))
+                               ;; Abort file if any system error occurred.
+                               (false-if-exception
+                                (call-with-input-file file
+                                  (cut port-transduce
+                                       (compose (tenumerate 1)
+                                                (tfilter line-matcher)
+                                                (tlog (make-line-logger file)))
+                                       (const #t)
+                                       get-line
+                                       <>))))
                              (filter (lambda (file)
                                        ;; Ensure file is a regular file and is
-                                       ;; not binary.
-                                       (and (eq? (stat:type (stat file))
-                                                 'regular)
-                                            (not (binary-file? file))))
+                                       ;; not binary. But, reject file if any
+                                       ;; system error (such as permission,
+                                       ;; non-existence, etc.) was encountered
+                                       ;; during test.
+                                       (false-if-exception
+                                        (and (eq? (stat:type (stat file))
+                                                  'regular)
+                                             (not (binary-file? file)))))
                                      (files-recursively files-root files-pattern)))))
         #:title (lambda* (#:key pattern files-root files-pattern)
                   (if files-pattern
