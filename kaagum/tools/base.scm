@@ -67,6 +67,9 @@ directory, return a singleton list with @var{path} alone."
                             (not (string-prefix? "." (basename path))))
                           (lambda (path stat result)
                             (if (regexp-exec pattern-rx (basename path))
+                                ;; Canonicalize path when building the result.
+                                ;; canonicalize-path accesses the filesystem and
+                                ;; may fail; if it does, discard the file.
                                 (guard (c (#t result))
                                   (cons (canonicalize-path path)
                                         result))
