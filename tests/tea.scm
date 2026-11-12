@@ -41,6 +41,7 @@
 (test-assert "handle LLM response"
   (run-with-state
    (acp-effects (llm-response 0
+                              "gen-1793743825"
                               '(("role" . "assistant")
                                 ("content" . "Hello! How can I help you today?"))
                               1770
@@ -58,6 +59,7 @@
 (test-assert "handle LLM response without \"cached_tokens\" field in usage"
   (run-with-state
    (acp-effects (llm-response 0
+                              "gen-1793743825"
                               '(("role" . "assistant")
                                 ("content" . "Hello! How can I help you today?"))
                               1770
