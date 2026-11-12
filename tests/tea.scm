@@ -17,6 +17,7 @@
 ;;; along with kaagum.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (srfi srfi-64)
+             (kaagum message)
              (kaagum monads)
              (kaagum openai)
              (kaagum tea))
@@ -42,8 +43,8 @@
   (run-with-state
    (acp-effects (llm-response 0
                               "gen-1793743825"
-                              '(("role" . "assistant")
-                                ("content" . "Hello! How can I help you today?"))
+                              (assistant-message "Hello! How can I help you today?"
+                                                 '())
                               1770
                               13
                               0
@@ -60,8 +61,8 @@
   (run-with-state
    (acp-effects (llm-response 0
                               "gen-1793743825"
-                              '(("role" . "assistant")
-                                ("content" . "Hello! How can I help you today?"))
+                              (assistant-message "Hello! How can I help you today?"
+                                                 '())
                               1770
                               13
                               0

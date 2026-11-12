@@ -30,6 +30,7 @@
   #:use-module (json)
   #:use-module (lens)
   #:use-module (kaagum container)
+  #:use-module (kaagum message)
   #:use-module (kaagum records)
   #:use-module (kaagum utils)
   #:export (tool-call-parse-failure?
@@ -137,7 +138,7 @@
           (title tool-call-result-title)
           (kind tool-call-result-kind)
           (arguments tool-call-result-arguments)
-          (json tool-call-result-json)
+          (message tool-call-result-message)
           (success? tool-call-result-success?)))
 
 (define-condition-type &tool-call-parse-failure &serious
@@ -253,9 +254,8 @@ available tools to their respective @code{<tool>} objects."
                                     #f
                                     #f
                                     (tool-call-arguments tool-call)
-                                    `(("role" . "tool")
-                                      ("tool_call_id" . ,(tool-call-id tool-call))
-                                      ("content" . ,(tool-call-failure-message c)))
+                                    (tool-message (tool-call-id tool-call)
+                                                  (tool-call-failure-message c))
                                     #f)))
          (let* ((args (alist->plist (tool-call-arguments tool-call)))
                 ;; Actually evaluate tool call.
@@ -280,9 +280,8 @@ available tools to their respective @code{<tool>} objects."
                              (apply (tool-title tool) args)
                              (tool-kind tool)
                              (tool-call-arguments tool-call)
-                             `(("role" . "tool")
-                               ("tool_call_id" . ,(tool-call-id tool-call))
-                               ("content" . ,(container-result-output tool-result)))
+                             (tool-message (tool-call-id tool-call)
+                                           (container-result-output tool-result))
                              (zero? (container-result-exit-value tool-result))))))
       ;; User cancelled or rejected tool call.
       ((cancelled rejected)
@@ -291,14 +290,12 @@ available tools to their respective @code{<tool>} objects."
                          #f
                          #f
                          (tool-call-arguments tool-call)
-                         `(("role" . "tool")
-                           ("tool_call_id" . ,(tool-call-id tool-call))
-                           ("content" .
-                            ,(case (focus tool-call-status tool-call)
-                               ((rejected)
-                                "Error: User denied permission for this tool call")
-                               ((cancelled)
-                                "Error: User cancelled this tool call"))))
+                         (tool-message (tool-call-id tool-call)
+                                       (case (focus tool-call-status tool-call)
+                                         ((rejected)
+                                          "Error: User denied permission for this tool call")
+                                         ((cancelled)
+                                          "Error: User cancelled this tool call")))
                          #f))
       (else
        (assertion-violation (focus tool-call-status tool-call)

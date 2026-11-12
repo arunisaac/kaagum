@@ -18,6 +18,7 @@
 
 (define-module (kaagum tea)
   #:use-module ((rnrs base) #:select (assertion-violation))
+  #:use-module (rnrs conditions)
   #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
   #:use-module (rnrs records syntactic)
@@ -30,6 +31,7 @@
   #:use-module (lens)
   #:use-module (kaagum config)
   #:use-module (kaagum lens)
+  #:use-module (kaagum message)
   #:use-module (kaagum monads)
   #:use-module (kaagum openai)
   #:use-module (kaagum records)
@@ -213,26 +215,10 @@ state."
          (list (llm-request session-id
                             (focus (state-model session-id)
                                    state)
-                            (map (lambda (message)
-                                   ;; Strip unnecessary fields (such as
-                                   ;; reasoning fields) based on role.
-                                   (let* ((role (focus (key-ref "role") message))
-                                          (allowed-fields
-                                           (cond
-                                            ((string=? role "user")
-                                             '("role" "content"))
-                                            ((string=? role "assistant")
-                                             '("role" "content" "tool_calls"))
-                                            ((string=? role "tool")
-                                             '("role" "content" "tool_call_id")))))
-                                     (filter (match-lambda
-                                               ((key . _)
-                                                (member key allowed-fields)))
-                                             message)))
-                                 ;; Reverse because we have been prepending new
-                                 ;; messages onto the list.
-                                 (reverse (focus (state-messages session-id)
-                                                 state)))))
+                            ;; Reverse because we have been prepending new
+                            ;; messages onto the list.
+                            (reverse (focus (state-messages session-id)
+                                            state))))
          ;; There are tool calls or a cancellation in progress; do nothing.
          (list)))))
 
@@ -252,6 +238,57 @@ state."
           (cache-write-tokens llm-response-cache-write-tokens)
           (cost llm-response-cost)
           (http-error? llm-response-http-error?)))
+
+(define (message->tree message)
+  "Convert @var{message}, a @code{<user-message>}, @code{<assistant-message>} or
+@code{<tool-message>} object, to a JSON tree."
+  (cond
+   ((user-message? message)
+    `(("role" . "user")
+      ("content" . ,(user-message-content message))))
+   ((assistant-message? message)
+    `(("role" . "assistant")
+      ("content" . ,(assistant-message-content message))
+      ,@(match (assistant-message-tool-calls message)
+          (() '())
+          (tool-calls
+           `(("tool_calls" . ,(list->vector tool-calls)))))))
+   ((tool-message? message)
+    `(("role" . "tool")
+      ("tool_call_id" . ,(tool-message-tool-call-id message))
+      ("content" . ,(tool-message-content message))))
+   ;; Unreachable code
+   (else
+    (assertion-violation message "Invalid message"))))
+
+(define (tree->message tree)
+  "Convert JSON @var{tree} to a @code{<user-message>}, @code{<assistant-message>}
+or @code{<tool-message>} object."
+  (let ((role (focus (key-ref "role")
+                     tree)))
+    (cond
+     ((string=? role "user")
+      (user-message (focus (key-ref "content")
+                           tree)))
+     ((string=? role "assistant")
+      (assistant-message (focus (key-ref "content")
+                                tree)
+                         (cond
+                          ;; We keep tool calls in their original JSON tree form
+                          ;; since tree->message does not have enough
+                          ;; information to parse and validate them.
+                          ((focus (key-ref "tool_calls")
+                                  tree)
+                           => vector->list)
+                          (else '()))))
+     ((string=? role "tool")
+      (tool-message (focus (key-ref "tool_call_id")
+                           tree)
+                    (focus (key-ref "content")
+                           tree)))
+     ;; Unreachable code
+     (else
+      (assertion-violation role "Invalid role")))))
 
 (define-record-type* (<acp-message> acp-message acp-message?)
   (fields (json acp-message-json lensed)))
@@ -513,8 +550,7 @@ in @code{tea-loop}."
                   (state-begin
                    (state-let* ((state (current-state)))
                      (set-current-state (push (state-messages session-id)
-                                              `(("role" . "user")
-                                                ("content" . ,prompt))
+                                              (user-message prompt)
                                               state)))
                    (llm-requests session-id))))))
              ("session/cancel"
@@ -678,9 +714,8 @@ session with @var{session-id}.
                     (set-current-state (-> state
                                            ;; Push tool call response onto messages.
                                            (push (state-messages session-id)
-                                                 `(("role" . "tool")
-                                                   ("tool_call_id" . ,call-id)
-                                                   ("content" . ,(tool-call-parse-failure-message c)))
+                                                 (tool-message call-id
+                                                               (tool-call-parse-failure-message c))
                                                  <>))))
                   ;; Notify client about invalid tool call.
                   (state-return (list (acp-message `(("jsonrpc" . "2.0")
@@ -826,11 +861,7 @@ session with @var{session-id}.
 in @code{tea-loop}."
   (let* ((session-id (llm-response-session-id response))
          (llm-reply (llm-response-message response))
-         (tool-calls-json (cond
-                           ((focus (key-ref "tool_calls")
-                                   llm-reply)
-                            => vector->list)
-                           (else '()))))
+         (tool-calls-json (assistant-message-tool-calls llm-reply)))
     (state-begin
      (state-let* ((state (current-state)))
        (set-current-state (-> state
@@ -862,8 +893,7 @@ in @code{tea-loop}."
                                      tool-calls-json)))
        (let ((effects (cons (agent-message-chunk session-id
                                                  ;; Send LLM's text response.
-                                                 (focus (key-ref "content")
-                                                        llm-reply))
+                                                 (assistant-message-content llm-reply))
                             tool-call-effects)))
          (if (null? tool-calls-json)
              ;; There are no further tool calls,
@@ -888,7 +918,7 @@ in @code{tea-loop}."
        (set-current-state (-> state
                               ;; Push tool call result onto messages.
                               (push (state-messages session-id)
-                                    (tool-call-result-json result)
+                                    (tool-call-result-message result)
                                     <>)
                               ;; Delete tool call from session tool call list.
                               (alist-delete-over (state-tool-calls session-id)
@@ -914,8 +944,8 @@ in @code{tea-loop}."
                                            ("content"
                                             ("type" . "text")
                                             ("text" .
-                                             ,(focus (key-ref "content")
-                                                     (tool-call-result-json result)))))))))))
+                                             ,(tool-message-content
+                                               (tool-call-result-message result)))))))))))
               llm-requests))))))
 
 (define (acp-effects message models tools)
@@ -999,7 +1029,8 @@ in @code{tea-loop}."
     (let ((json (openai-query llm-base-uri
                               llm-api-key
                               (llm-request-model effect)
-                              (compacter (llm-request-messages effect))
+                              (map message->tree
+                                   (llm-request-messages effect))
                               (map (match-lambda
                                      ((name . tool)
                                       (tool->spec name tool)))
@@ -1010,8 +1041,15 @@ in @code{tea-loop}."
                 (llm-response (llm-request-session-id effect)
                               (focus (in-json "id")
                                      json)
-                              (focus (in-json "choices" 0 "message")
-                                     json)
+                              (let ((message
+                                     (tree->message (focus (in-json "choices" 0 "message")
+                                                           json))))
+                                (if (assistant-message? message)
+                                    message
+                                    (raise-exception
+                                     (condition (make-error)
+                                                (make-irritants-condition message)
+                                                (make-message-condition "Invalid message role")))))
                               (focus (in-json "usage" "prompt_tokens")
                                      json)
                               (focus (in-json "usage" "completion_tokens")
