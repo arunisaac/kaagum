@@ -243,7 +243,14 @@ state."
 
 (define-record-type* (<llm-response> llm-response llm-response?)
   (fields (session-id llm-response-session-id)
-          (json llm-response-json)))
+          (message llm-response-message)
+          (prompt-tokens llm-response-prompt-tokens)
+          (completion-tokens llm-response-completion-tokens)
+          (reasoning-tokens llm-response-reasoning-tokens)
+          (cached-tokens llm-response-cached-tokens)
+          (cache-write-tokens llm-response-cache-write-tokens)
+          (cost llm-response-cost)
+          (http-error? llm-response-http-error?)))
 
 (define-record-type* (<acp-message> acp-message acp-message?)
   (fields (json acp-message-json lensed)))
@@ -817,8 +824,7 @@ session with @var{session-id}.
 @var{tools} is the same as in @code{run-tea-loop}. @var{models} is the same as
 in @code{tea-loop}."
   (let* ((session-id (llm-response-session-id response))
-         (llm-reply (focus (in-json "choices" 0 "message")
-                           (llm-response-json response)))
+         (llm-reply (llm-response-message response))
          (tool-calls-json (cond
                            ((focus (key-ref "tool_calls")
                                    llm-reply)
@@ -828,38 +834,22 @@ in @code{tea-loop}."
      (state-let* ((state (current-state)))
        (set-current-state (-> state
                               (add (state-session-input-tokens session-id)
-                                   (focus (in-json "usage" "prompt_tokens")
-                                          (llm-response-json response))
+                                   (llm-response-prompt-tokens response)
                                    <>)
                               (add (state-session-output-tokens session-id)
-                                   (focus (in-json "usage" "completion_tokens")
-                                          (llm-response-json response))
+                                   (llm-response-completion-tokens response)
                                    <>)
                               (add (state-session-thought-tokens session-id)
-                                   (or (focus (in-json "usage"
-                                                       "completion_tokens_details"
-                                                       "reasoning_tokens")
-                                              (llm-response-json response))
-                                       0)
+                                   (llm-response-reasoning-tokens response)
                                    <>)
                               (add (state-session-cache-read-tokens session-id)
-                                   (or (focus (in-json "usage"
-                                                       "prompt_tokens_details"
-                                                       "cached_tokens")
-                                              (llm-response-json response))
-                                       0)
+                                   (llm-response-cached-tokens response)
                                    <>)
                               (add (state-session-cache-write-tokens session-id)
-                                   (or (focus (in-json "usage"
-                                                       "prompt_tokens_details"
-                                                       "cache_write_tokens")
-                                              (llm-response-json response))
-                                       0)
+                                   (llm-response-cache-write-tokens response)
                                    <>)
                               (add (state-session-cost session-id)
-                                   (or (focus (in-json "usage" "cost")
-                                              (llm-response-json response))
-                                       0)
+                                   (llm-response-cost response)
                                    <>)
                               ;; Push LLM response onto messages.
                               (push (state-messages session-id)
@@ -950,7 +940,7 @@ in @code{tea-loop}."
            (client-request-effects json-message models tools)))))
    ;; End turn if message is an LLM response containing an HTTP error.
    ((and (llm-response? message)
-         (http-error? (llm-response-json message)))
+         (llm-response-http-error? message))
     (end-turn-effects (llm-response-session-id message)
                       models
                       ;; TODO: The v2 version of the protocol allows custom stop
@@ -1005,15 +995,37 @@ in @code{tea-loop}."
    ;; Send request to LLM, handle the response, and return the new state.
    ((llm-request? effect)
     ;; TODO: Handle network failures in OpenAI query.
-    (list (llm-response (llm-request-session-id effect)
-                        (openai-query llm-base-uri
-                                      llm-api-key
-                                      (llm-request-model effect)
-                                      (llm-request-messages effect)
-                                      (map (match-lambda
-                                             ((name . tool)
-                                              (tool->spec name tool)))
-                                           tools)))))
+    (let ((json (openai-query llm-base-uri
+                              llm-api-key
+                              (llm-request-model effect)
+                              (compacter (llm-request-messages effect))
+                              (map (match-lambda
+                                     ((name . tool)
+                                      (tool->spec name tool)))
+                                   tools))))
+      (list (if (http-error? json)
+                (llm-response (llm-request-session-id effect)
+                              #f 0 0 0 0 0 0 #t)
+                (llm-response (llm-request-session-id effect)
+                              (focus (in-json "choices" 0 "message")
+                                     json)
+                              (focus (in-json "usage" "prompt_tokens")
+                                     json)
+                              (focus (in-json "usage" "completion_tokens")
+                                     json)
+                              (or (focus (in-json "usage" "completion_tokens_details" "reasoning_tokens")
+                                         json)
+                                  0)
+                              (or (focus (in-json "usage" "prompt_tokens_details" "cached_tokens")
+                                         json)
+                                  0)
+                              (or (focus (in-json "usage" "prompt_tokens_details" "cache_write_tokens")
+                                         json)
+                                  0)
+                              (or (focus (in-json "usage" "cost")
+                                         json)
+                                  0)
+                              #f)))))
    ;; Evaluate tool, handle the result, and return the new state.
    ((tool-call? effect)
     (list (eval-tool-call effect tools)))))
