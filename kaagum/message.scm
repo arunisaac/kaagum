@@ -21,7 +21,8 @@
   #:use-module (ice-9 match)
   #:use-module (lens)
   #:use-module (kaagum records)
-  #:export (message->tree
+  #:export (message-content
+            message->tree
             tree->message))
 
 (define-public-record-type* (<user-message> user-message user-message?)
@@ -34,6 +35,15 @@
 (define-public-record-type* (<tool-message> tool-message tool-message?)
   (fields (tool-call-id tool-message-tool-call-id)
           (content tool-message-content)))
+
+(define (message-content message)
+  (cond
+   ((user-message? message)
+    (user-message-content message))
+   ((assistant-message? message)
+    (assistant-message-content message))
+   ((tool-message? message)
+    (tool-message-content message))))
 
 (define (message->tree message)
   "Convert @var{message}, a @code{<user-message>}, @code{<assistant-message>} or
