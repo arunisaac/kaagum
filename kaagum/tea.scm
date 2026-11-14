@@ -239,57 +239,6 @@ state."
           (cost llm-response-cost)
           (http-error? llm-response-http-error?)))
 
-(define (message->tree message)
-  "Convert @var{message}, a @code{<user-message>}, @code{<assistant-message>} or
-@code{<tool-message>} object, to a JSON tree."
-  (cond
-   ((user-message? message)
-    `(("role" . "user")
-      ("content" . ,(user-message-content message))))
-   ((assistant-message? message)
-    `(("role" . "assistant")
-      ("content" . ,(assistant-message-content message))
-      ,@(match (assistant-message-tool-calls message)
-          (() '())
-          (tool-calls
-           `(("tool_calls" . ,(list->vector tool-calls)))))))
-   ((tool-message? message)
-    `(("role" . "tool")
-      ("tool_call_id" . ,(tool-message-tool-call-id message))
-      ("content" . ,(tool-message-content message))))
-   ;; Unreachable code
-   (else
-    (assertion-violation message "Invalid message"))))
-
-(define (tree->message tree)
-  "Convert JSON @var{tree} to a @code{<user-message>}, @code{<assistant-message>}
-or @code{<tool-message>} object."
-  (let ((role (focus (key-ref "role")
-                     tree)))
-    (cond
-     ((string=? role "user")
-      (user-message (focus (key-ref "content")
-                           tree)))
-     ((string=? role "assistant")
-      (assistant-message (focus (key-ref "content")
-                                tree)
-                         (cond
-                          ;; We keep tool calls in their original JSON tree form
-                          ;; since tree->message does not have enough
-                          ;; information to parse and validate them.
-                          ((focus (key-ref "tool_calls")
-                                  tree)
-                           => vector->list)
-                          (else '()))))
-     ((string=? role "tool")
-      (tool-message (focus (key-ref "tool_call_id")
-                           tree)
-                    (focus (key-ref "content")
-                           tree)))
-     ;; Unreachable code
-     (else
-      (assertion-violation role "Invalid role")))))
-
 (define-record-type* (<acp-message> acp-message acp-message?)
   (fields (json acp-message-json lensed)))
 
