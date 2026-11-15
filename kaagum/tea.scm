@@ -74,6 +74,7 @@
                    cancelling? messages pending-tool-calls
                    allowed-tools rejected-tools)))
   (fields (cwd session-cwd lensed)
+          ;; Model name (string)
           (model session-model lensed)
           ;; Input tokens used in current turn
           (input-tokens session-input-tokens lensed)
