@@ -44,7 +44,9 @@
       ("content" . ,(user-message-content message))))
    ((assistant-message? message)
     `(("role" . "assistant")
-      ("content" . ,(assistant-message-content message))
+      ,@(if (assistant-message-content message)
+            `(("content" . ,(assistant-message-content message)))
+            '())
       ,@(match (assistant-message-tool-calls message)
           (() '())
           (tool-calls
@@ -67,8 +69,10 @@ or @code{<tool-message>} object."
       (user-message (focus (key-ref "content")
                            tree)))
      ((string=? role "assistant")
-      (assistant-message (focus (key-ref "content")
-                                tree)
+      (assistant-message (let ((content (focus (key-ref "content")
+                                               tree)))
+                           (and (not (eq? content 'null))
+                                content))
                          (cond
                           ;; We keep tool calls in their original JSON tree form
                           ;; since tree->message does not have enough
