@@ -69,7 +69,8 @@ condition on failure."
              (trace 'web "<- ~a ~a" (response-code response) (scm->json-string result))
              result))
       (else
-       (trace 'web "<- ~a" (response-code response))
+       (let ((result (json->scm body)))
+         (trace 'web "<- ~a ~a" (response-code response) (scm->json-string result)))
        (raise-exception
         (condition (http-error (response-code response)
                                (response-reason-phrase response))
