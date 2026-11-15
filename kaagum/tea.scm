@@ -499,7 +499,10 @@ in @code{tea-loop}."
                   (state-begin
                    (state-let* ((state (current-state)))
                      (set-current-state (push (state-messages session-id)
-                                              (user-message prompt)
+                                              ;; TODO: Allow more than one
+                                              ;; content block.
+                                              (user-message (focus (in-json 0 "text")
+                                                                   prompt))
                                               state)))
                    (llm-requests session-id))))))
              ("session/cancel"
