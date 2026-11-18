@@ -522,7 +522,9 @@ in @code{tea-loop}."
                                           (put state-requests-alist
                                                '()
                                                <>))))
-                 (end-turn-effects session-id models "cancelled"))))))))))
+                 (end-turn-effects session-id models "cancelled"))))
+             (method
+              (error "Unknown JSON-RPC method" method))))))))
 
 (define (client-response-effects response)
   "Return the state-monadic list of effects for a new ACP @var{response}."
